@@ -247,6 +247,11 @@ dd{margin:0 0 4px;overflow-wrap:anywhere}
 .gate b{color:var(--ok);white-space:nowrap}
 .theme .act{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:13.5px}
 .theme .act .eyebrow{display:block;color:var(--accent);margin-bottom:2px}
+.rv{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:start}
+.rv > div{font-size:13.5px}
+.rv .rv-new{background:var(--ok-bg);border-radius:8px;padding:10px 12px}
+.rv .rv-new .eyebrow{color:var(--ok)}
+@media (max-width:900px){.rv{grid-template-columns:minmax(0,1fr)}}
 .roll{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr));gap:12px}
 .roll .tb li::before{content:"";width:14px;height:14px;top:3px;border-radius:4px;background:none;border:1.5px solid var(--accent)}
 .roll .tb li{padding-left:24px}
@@ -275,12 +280,12 @@ dd{margin:0 0 4px;overflow-wrap:anywhere}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M6 10l6-6 6 6M4 20h16"/></svg>
         Upload tracker
       </button>
-      <button class="btn" id="resetBtn" type="button" hidden>Show sample</button>
+      <button class="btn" id="resetBtn" type="button" hidden>Show original</button>
     </div>
   </header>
   <nav class="tabs" id="tabs" role="tablist" aria-label="Workbook views"></nav>
   <main id="view" class="view"></main>
-  <p class="note"><span>Your Excel file is read inside your own browser. It is not uploaded to any server. The last file you opened is remembered on this device only.</span></p>
+  <p class="note"><span>The page opens on the original HR tracker. A file you upload is read inside your own browser, is not sent to any server, and is remembered on this device only.</span></p>
 </div>
 <div class="drop" id="drop" hidden><div>Drop the Excel tracker to load it</div></div>
 <div class="toast" id="toast" hidden></div>
@@ -295,7 +300,9 @@ const TODAY = (()=>{const d=new Date(); d.setHours(0,0,0,0); return d;})();
 const iso = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 const plus = n => {const d=new Date(TODAY); d.setDate(d.getDate()+n); return iso(d);};
 const MON = {jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
-const KEY = 'process-plan-dashboard-v1';
+const KEY = 'process-plan-dashboard-v2';
+const HTTP = /^https?:$/.test(location.protocol);
+function routeId(){ const m=location.pathname.match(/\/(recruitment)\/?$/); if (m) return m[1]; const h=location.hash.replace(/^#\/?/,''); return h==='recruitment' ? h : null; }
 
 function toDate(v){
   if (v==null || v==='') return null;
@@ -477,12 +484,12 @@ function buildViews(){
 let VIEWS=[];
 function render(){
   VIEWS = buildViews();
-  if (location.hash){ const hi=VIEWS.findIndex(v=>v.id && '#'+v.id===location.hash); if(hi>=0) S.tab=hi; }
+  { const r=routeId(); if (r){ const hi=VIEWS.findIndex(v=>v.id===r); if(hi>=0) S.tab=hi; } }
   if (S.tab>=VIEWS.length) S.tab=0;
   const first=S.sheets.find(s=>s.title);
-  $('#planTitle').textContent = S.sample ? 'Sample process plan' : (S.file ? S.file.replace(/\.[^.]+$/,'').replace(/[_]+/g,' ') : (first?.title || 'Process plan'));
+  $('#planTitle').textContent = S.sample ? ORIGINAL_TITLE : (S.file ? S.file.replace(/\.[^.]+$/,'').replace(/[_]+/g,' ') : (first?.title || 'Process plan'));
   $('#src').innerHTML = S.sample
-    ? `<span class="chip sample">Sample data</span><span class="muted">Example rows only. Upload your Excel tracker to see your plan.</span>`
+    ? `<span class="chip live">Original tracker</span><span class="mono">${esc(ORIGINAL_FILE)}</span><span class="muted">· ${S.sheets.length} sheets · as of ${esc(ORIGINAL_ASOF)} · upload a newer version to update</span>`
     : `<span class="chip live">Loaded</span><span class="mono">${esc(S.file)}</span><span class="muted">· ${S.sheets.length} sheets · opened ${esc(S.loadedAt||'')}</span>`;
   $('#resetBtn').hidden = S.sample;
   $('#tabs').innerHTML = VIEWS.map((v,i)=>`<button class="tab" role="tab" type="button" data-i="${i}" aria-selected="${i===S.tab}">${esc(v.label)}${v.n!=null?`<span class="n">${v.n}</span>`:''}</button>`).join('');
@@ -656,248 +663,170 @@ function renderTable(sh){
     <tbody>${sh.rows.map(r=>`<tr>${sh.headers.map((h,i)=>`<td class="${cls(i)}">${fmtCell(r[i],h)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
 }
 
-/* ---------- recruitment plan (audited process + CTO comments) ---------- */
-const RP_PHASES = [
-  {id:'p1', name:'Requisition & alignment'},
-  {id:'p2', name:'Sourcing'},
-  {id:'p3', name:'Screening'},
-  {id:'p4', name:'Technical evaluation'},
-  {id:'p5', name:'HR fit & offer'},
-  {id:'p6', name:'Preboarding & joining'}];
+/* ---------- recruitment plan (source: HR Recruitment sheet + CTO comments against each point) ---------- */
+const RP_META = {owner:'Radhika Chandak', hr:'Anuja Gautam', source:'HR Recuritment .xlsx (process + CTO comments against each point)', review:'2026-10-08'};
+const RP_MS = {'30-day':'2026-11-07','60-day':'2026-12-07','90-day':'2027-01-06'};
 const RP_STAGES = [
- {no:'1',ph:'p1',name:'Requirement Initiation',det:'Receive requirement/JD from Delivery Team with required skills, experience, location, notice period, etc.',own:'HR',sup:'Delivery',tat:'Same day',mn:0,mx:0,
-  cto:['Receipt of correct JD','Change in technical requirements','JD – primary and secondary skills, must have, good to have','Opportunity: project / bench','Expected salary range (budget)','Automation in Keka – edit and approve','Requisition form with panel and number of rounds'],
-  au:[['gap','No approval step is defined, yet stage 3 posts an “approved” JD. It does not say who approves or where.'],['risk','A change in technical requirements mid-hire resets the funnel, and there is no change-control rule.'],['fix','Turn the CTO list into one mandatory Keka requisition form: must-have / good-to-have skills, project vs bench, budget band, panel names and number of rounds. HR sends back incomplete forms.']]},
- {no:'2',ph:'p1',name:'Requirement Understanding',det:'Delivery explains the exact technical requirement. For new requirements or changes in an existing requirement, HR schedules a discussion call with Delivery.',own:'HR + Delivery',sup:'—',tat:'1 day',mn:1,mx:1,cto:[],
-  au:[['risk','Ownership is shared (HR + Delivery), so no single person is accountable for a clear brief.'],['fix','Hold a 15-minute kickoff for every requisition, not only new or changed ones. Output: 2–3 sample profiles, 3 knock-out screening questions and the channel plan.']]},
- {no:'3',ph:'p2',name:'Job Posting',det:'Post approved JD on the company website, which is integrated with KEKA.',own:'HR',sup:'—',tat:'Same/Next day',mn:0,mx:1,cto:[],
-  au:[['gap','Only one channel (career page). Referrals, job portals, LinkedIn and consultants are not mentioned.'],['fix','Pick a channel mix at kickoff by role criticality: career page + referrals by default, portals/LinkedIn for niche skills, consultants only for hard-to-fill roles.']]},
- {no:'4',ph:'p2',name:'Application Collection',det:'Applications start coming through the company career page after the job is posted.',own:'HR',sup:'—',tat:'1–2 days onward',mn:1,mx:2,cto:[],
-  au:[['risk','The TAT is open-ended (“onward”). There is no pipeline target and no trigger when applications are thin.'],['fix','Set a pipeline target per role (for example 15–20 relevant CVs in 5 working days). If it is missed, add channels or revisit the JD/budget with Delivery.']]},
- {no:'5',ph:'p3',name:'CV Screening',det:'Screen candidates based on experience, relevant skills, location, budget, notice period and other role-specific criteria.',own:'HR',sup:'—',tat:'1–2 days',mn:1,mx:2,
+ {no:'1',name:'Requirement Initiation',det:'Receive requirement/JD from Delivery Team with required skills, experience, location, notice period, etc.',own:'HR',sup:'Delivery',tat:'Same day',mn:0,mx:0,
+  cto:['Receipt of correct JD','Change in technical requirements','JD- Primary skills and secondary skills, must have, good to have','Opportunity project /bench','Expected salary range(budget)','Automation in keka, edit and approve','Requisition form with panel and number of rounds'],
+  ch:'CTO',rev:'Delivery raises the requirement in Keka through a standard requisition form. HR checks the JD is correct and complete, then approves it in Keka before anything is posted. The form captures: primary and secondary skills, each marked must have or good to have; opportunity type (project or bench); expected salary range (budget); interview panel and number of rounds; experience, location and notice period. Any change in technical requirements is made as an edit to the Keka requisition and is approved again.',
+  out:'Approved Keka requisition with correct JD, budget, panel and rounds',acts:['R01','R02','R03']},
+ {no:'2',name:'Requirement Understanding',det:'Delivery explains the exact technical requirement. For new requirements or changes in an existing requirement, HR schedules a discussion call with Delivery.',own:'HR + Delivery',sup:'—',tat:'1 day',mn:1,mx:1,cto:[],
+  ch:'Linked',rev:'No change to the step. A new requisition, or an edited one from stage 1 (change in technical requirements), triggers this call.',out:'',acts:[]},
+ {no:'3',name:'Job Posting',det:'Post approved JD on the company website, which is integrated with KEKA.',own:'HR',sup:'—',tat:'Same/Next day',mn:0,mx:1,cto:[],ch:'None',rev:'',out:'',acts:[]},
+ {no:'4',name:'Application Collection',det:'Applications start coming through the company career page after the job is posted.',own:'HR',sup:'—',tat:'1–2 days onward',mn:1,mx:2,cto:[],ch:'None',rev:'',out:'',acts:[]},
+ {no:'5',name:'CV Screening',det:'Screen candidates based on experience, relevant skills, location, budget, notice period and other role-specific criteria.',own:'HR',sup:'—',tat:'1–2 days',mn:1,mx:2,
   cto:['Salaries from previous appraisals','Salary trajectory across timelines','Discussion rather than an interview'],
-  au:[['risk','Screening criteria are not written down, so results vary by recruiter.'],['fix','Use a one-page screening scorecard built from the requisition must-haves, plus a salary-trajectory check (CTC at each job move and appraisal) as the CTO asked.']]},
- {no:'6',ph:'p3',name:'HR Screening Call',det:'Conduct a short HR introduction call to understand candidate background, experience, communication, current CTC, expected CTC, notice period, location and interest.',own:'HR',sup:'—',tat:'Same/Next day',mn:0,mx:1,cto:[],
-  au:[['ok','Clear owner and a tight TAT.'],['fix','Run it as a conversation (CTO) with a standard script. Ask for salary slips and the latest appraisal letter on this call, so document collection at stage 13 does not add a wait later.']]},
- {no:'7',ph:'p4',name:'Technical Interview – L1',det:'Coordinate availability of candidate and panel and schedule the first technical interview.',own:'HR',sup:'Technical Panel',tat:'1–2 days',mn:1,mx:2,
-  cto:['Panel availability','First round panel has to be large','Panel rotation','Train the panel','Scan the resume','Need to change mentality from rejecting to selecting','Reach 2–3 mins before the meeting','Need to check the resume thoroughly through questions','Try to stick to 30 mins wherever possible','Make the interviewee talk'],
-  au:[['gap','Panel availability is the main bottleneck, but HR owns this TAT without any control over panel time.'],['fix','Delivery commits weekly pre-blocked interview slots. Build an L1 pool of 8–10 trained panelists on rotation.'],['fix','Publish a one-page interviewer standard: read the CV beforehand, join 2–3 minutes early, keep to 30 minutes, let the candidate do most of the talking, test the CV with questions, and look for reasons to select.']]},
- {no:'8',ph:'p4',name:'L1 Feedback',det:'Panel evaluates the candidate and submits interview feedback.',own:'Technical Panel',sup:'HR',tat:'Within 24 hrs',mn:1,mx:1,
+  ch:'CTO',rev:'Screen on experience, skills, location, budget and notice period as today, and add a salary check: the salary from each previous appraisal and the salary trajectory across timelines, compared with the budget. Conversations with the candidate at this point are a discussion rather than an interview.',
+  out:'Shortlist with salary-trajectory check',acts:['R04','R05']},
+ {no:'6',name:'HR Screening Call',det:'Conduct a short HR introduction call to understand candidate background, experience, communication, current CTC, expected CTC, notice period, location and interest.',own:'HR',sup:'—',tat:'Same/Next day',mn:0,mx:1,cto:[],ch:'None',rev:'',out:'',acts:[]},
+ {no:'7',name:'Technical Interview – L1',det:'Coordinate availability of candidate and panel and schedule the first technical interview.',own:'HR',sup:'Technical Panel',tat:'1–2 days',mn:1,mx:2,
+  cto:['Panel availability','First round panel has to be large','Panel rotation','Train the panel','Scan the resume','Need to change mentality from rejecting to selecting','Reach 2-3 mins before the meeting','Need to check the resume thoroughly through questions','Try to stick to 30  mins wherever possible','Make the interviewee talk'],
+  ch:'CTO',rev:'HR schedules L1 from a large first-round panel that rotates, so panel availability does not hold up hiring. Every panel member is trained, and every interviewer: scans the resume before the meeting; reaches 2–3 minutes early; checks the resume thoroughly through questions; sticks to 30 minutes wherever possible; makes the interviewee talk; and goes in to select, not to reject.',
+  out:'L1 held by a trained panelist from the rotation',acts:['R06','R07']},
+ {no:'8',name:'L1 Feedback',det:'Panel evaluates the candidate and submits interview feedback.',own:'Technical Panel',sup:'HR',tat:'Within 24 hrs (lead time TBD)',mn:1,mx:1,
   cto:['Objective feedback','Short sentences, not too ambiguous','Bullet points','Lead time TBD'],
-  au:[['risk','Conflict: the TAT says “within 24 hrs” but the CTO note says the lead time is TBD.'],['fix','Fix the SLA at 24 hours. Use a structured Keka form: a rating per must-have skill, bullet-point evidence, and Hire / No hire. Auto-reminder at 12 h, escalate to the Delivery head at 24 h.']]},
- {no:'9',ph:'p4',name:'Technical Interview – L2',det:'If L1 is positive, schedule the second technical interview.',own:'HR',sup:'Technical Panel',tat:'1–2 days',mn:1,mx:2,cto:[],
-  au:[['gap','Only the positive path is defined. Nothing says what happens to candidates rejected or put on hold after L1.'],['fix','Take the number of rounds from the requisition. Junior or bench roles can close after one technical round.']]},
- {no:'10',ph:'p4',name:'L2 Feedback',det:'Panel submits L2 evaluation and recommendation.',own:'Technical Panel',sup:'HR',tat:'Within 24 hrs',mn:1,mx:1,cto:['Decisive panel for L2'],
-  au:[['fix','L2 gives a clear Hire / No hire, never “maybe”. L2 panelists are senior and fixed per practice.']]},
- {no:'11',ph:'p4',name:'Candidate Selection',det:'If the candidate clears both L1 and L2, HR confirms technical selection and moves the candidate to HR discussion.',own:'HR',sup:'Delivery / Panel',tat:'Same day',mn:0,mx:0,cto:[],
-  au:[['ok','A clear gate between technical and HR evaluation.']]},
- {no:'12',ph:'p5',name:'HR Discussion',det:'Schedule discussion with Anuja to understand the candidate’s overall fit, expectations and other relevant details.',own:'HR',sup:'Anuja',tat:'1–2 days',mn:1,mx:2,
+  ch:'CTO',rev:'The panel submits feedback that is objective, written in bullet points and short sentences, and not ambiguous. The feedback lead time is still to be decided (CTO: TBD); until then the target stays within 24 hrs.',
+  out:'Objective, bullet-point L1 feedback',acts:['R08','R09']},
+ {no:'9',name:'Technical Interview – L2',det:'If L1 is positive, schedule the second technical interview.',own:'HR',sup:'Technical Panel',tat:'1–2 days',mn:1,mx:2,cto:[],ch:'None',rev:'',out:'',acts:[]},
+ {no:'10',name:'L2 Feedback',det:'Panel submits L2 evaluation and recommendation.',own:'Technical Panel',sup:'HR',tat:'Within 24 hrs',mn:1,mx:1,
+  cto:['Decisive panel for L2'],
+  ch:'CTO',rev:'L2 is a decisive panel: its recommendation is a clear final decision on the candidate.',out:'Clear L2 decision',acts:['R10']},
+ {no:'11',name:'Candidate Selection',det:'If the candidate clears both L1 and L2, HR confirms technical selection and moves the candidate to HR discussion.',own:'HR',sup:'Delivery / Panel',tat:'Same day',mn:0,mx:0,cto:[],ch:'None',rev:'',out:'',acts:[]},
+ {no:'12',name:'HR Discussion',det:'Schedule discussion with Anuja to understand the candidate’s overall fit, expectations and other relevant details.',own:'HR',sup:'Anuja',tat:'1–2 days',mn:1,mx:2,
   cto:['HR IEF','Discussion transcripts through an app','Can recommend with respect to salary range','Engagement with the candidate offered but not onboarded','Making the person feel welcomed, part of the organization, navigating the hybrid model','Orientation plan','Buddy system'],
-  au:[['risk','Every hire passes through one person. If Anuja is on leave or travelling, all offers stall.'],['fix','Name a backup. Record the outcome in the HR IEF with a salary recommendation inside the approved band.'],['risk','Recording or transcribing discussions needs the candidate’s consent up front.'],['fix','Several CTO notes here (engagement, welcome, hybrid, orientation, buddy) belong after the offer. They move to the Engage and Join phases in the recommended flow.']]},
- {no:'12a',ph:'p5',name:'Candidate Feedback',det:'Feedback is given to candidate via KEKA.',own:'HR',sup:'Anuja / Pratiksha',tat:'Within 24 hrs',mn:1,mx:1,parallel:true,cto:[],
-  au:[['gap','This step has no number and appears only once. Candidates rejected at screening, L1 or L2 get no defined closure.'],['fix','Send a Keka status update within 24 h of every decision at every stage, including rejections.']]},
- {no:'13',ph:'p5',name:'Document Collection – Pre-offer',det:'Collect salary slips, current/other offer letter, latest increment/appraisal letter and other required documents.',own:'HR',sup:'Candidate',tat:'1–2 days',mn:1,mx:2,cto:[],
-  au:[['fix','Request these on the HR screening call (stage 6). They should already be in hand by now, which saves 1–2 days.']]},
- {no:'14',ph:'p5',name:'Compensation Discussion',det:'Discuss candidate profile and compensation with CTO & CFO and finalize the approved budget/offer.',own:'HR',sup:'CTO + CFO',tat:'1–2 days',mn:1,mx:2,cto:[],
-  au:[['risk','The budget is already set at requisition, yet every offer still needs CTO + CFO. That puts two senior approvals on the critical path of every hire.'],['fix','Offers within the approved band are approved by HR + Anuja. Only exceptions above band go to CTO + CFO, with a 24 h SLA.']]},
- {no:'15',ph:'p5',name:'Offer Discussion',det:'HR discusses approved compensation and other offer details with the candidate.',own:'HR',sup:'Candidate',tat:'Same day',mn:0,mx:0,cto:[],
-  au:[['ok','A same-day TAT keeps momentum.']]},
- {no:'16',ph:'p5',name:'Selection Communication',det:'Send formal selection email to the candidate and request required joining documents.',own:'HR',sup:'Candidate',tat:'Same day',mn:0,mx:0,cto:[],
-  au:[['gap','A selection email is not an offer letter. There is no formal offer letter, acceptance deadline or background-verification step.'],['fix','Issue the offer letter from Keka with an acceptance date (3–5 days). Start background verification on acceptance.']]},
- {no:'17',ph:'p6',name:'Preboarding',det:'Initiate candidate preboarding through KEKA and ensure required documents/forms are completed.',own:'HR',sup:'Candidate',tat:'Before DOJ',mn:null,mx:null,cto:[],
-  au:[['gap','The 30–90 day notice period between offer and joining carries the highest dropout risk, and nothing is planned for it (the CTO raised this at stage 12).'],['fix','Engagement cadence: a call every 2 weeks, a buddy assigned before DOJ, a welcome note from the reporting manager, and a check 1 week before DOJ.']]},
- {no:'18',ph:'p6',name:'Joining Preparation',det:'Confirm DOJ, reporting details, documents, IT requirements and other onboarding arrangements.',own:'HR',sup:'IT / Delivery / Admin',tat:'Before DOJ',mn:null,mx:null,cto:[],
-  au:[['risk','“Before DOJ” has no lead time. Laptop, accounts and access often need a week.'],['fix','Raise the IT / Admin request when the offer is accepted, and run a readiness checklist 5 working days before DOJ.']]},
- {no:'19',ph:'p6',name:'Day 1',det:'Collect hard copies of required documents with self-attested copies on the date of joining.',own:'HR',sup:'New Joiner',tat:'Day 1',mn:null,mx:null,cto:[],
-  au:[['risk','Day 1 is paperwork only, and it repeats what preboarding already collected.'],['fix','Day 1 = verify originals + orientation + buddy introduction + hybrid-working guide (CTO: orientation plan, buddy system).']]},
- {no:'20',ph:'p6',name:'Recruitment Closure',det:'Update candidate status, joining details and recruitment tracker; close the requirement after successful joining.',own:'HR',sup:'Delivery',tat:'Day 1/2',mn:null,mx:null,cto:[],
-  au:[['gap','The process ends at joining. There is no 30/60/90-day check, no quality-of-hire feedback and no hiring metrics.'],['fix','Close the requisition on joining, then run a 30/60/90-day check-in with the manager and a monthly recruitment metrics review.']]}
+  ch:'CTO',rev:'Anuja’s discussion is recorded in the HR IEF, with a transcript captured through an app. Anuja can recommend the offer with respect to the salary range, which goes into the compensation discussion (stage 14). From here HR also owns engagement with the candidate who is offered but not yet onboarded: making the person feel welcomed and part of the organisation, explaining how to navigate the hybrid model, sharing the orientation plan and assigning a buddy.',
+  out:'HR IEF + transcript, salary recommendation, engagement plan started',acts:['R11','R12','R13','R14','R15','R16','R17']},
+ {no:'—',name:'Feedback – Candidate',det:'Feedback is given to candidate via KEKA',own:'HR',sup:'Anuja/Pratiksha',tat:'Within 24 hrs',mn:1,mx:1,parallel:true,cto:[],ch:'None',rev:'',out:'',acts:[]},
+ {no:'13',name:'Document Collection – Pre-offer',det:'Collect salary slips, current/other offer letter, latest increment/appraisal letter and other required documents.',own:'HR',sup:'Candidate',tat:'1–2 days',mn:1,mx:2,cto:[],ch:'Linked',rev:'No change to the step. The appraisal letters and salary slips collected here confirm the salary trajectory checked at CV screening (stage 5).',out:'',acts:[]},
+ {no:'14',name:'Compensation Discussion',det:'Discuss candidate profile and compensation with CTO & CFO and finalize the approved budget/offer.',own:'HR',sup:'CTO + CFO',tat:'1–2 days',mn:1,mx:2,cto:[],ch:'Linked',rev:'No change to the step. Anuja’s salary-range recommendation from the HR discussion (stage 12) is an input to this discussion.',out:'',acts:[]},
+ {no:'15',name:'Offer Discussion',det:'HR discusses approved compensation and other offer details with the candidate.',own:'HR',sup:'Candidate',tat:'Same day',mn:0,mx:0,cto:[],ch:'None',rev:'',out:'',acts:[]},
+ {no:'16',name:'Selection Communication',det:'Send formal selection email to the candidate and request required joining documents.',own:'HR',sup:'Candidate',tat:'Same day',mn:0,mx:0,cto:[],ch:'None',rev:'',out:'',acts:[]},
+ {no:'17',name:'Preboarding',det:'Initiate candidate preboarding through KEKA and ensure required documents/forms are completed.',own:'HR',sup:'Candidate',tat:'Before DOJ',mn:null,mx:null,cto:[],ch:'Linked',rev:'No change to the step. Engagement with the offered candidate (stage 12) continues until joining: welcome, hybrid-model guidance and buddy contact.',out:'',acts:[]},
+ {no:'18',name:'Joining Preparation',det:'Confirm DOJ, reporting details, documents, IT requirements and other onboarding arrangements.',own:'HR',sup:'IT / Delivery / Admin',tat:'Before DOJ',mn:null,mx:null,cto:[],ch:'None',rev:'',out:'',acts:[]},
+ {no:'19',name:'Day 1',det:'Collect hard copies of required documents with self-attested copies on the date of joining.',own:'HR',sup:'New Joiner',tat:'Day 1',mn:null,mx:null,cto:[],ch:'Linked',rev:'No change to the step. The orientation plan and buddy introduction from stage 12 run on Day 1.',out:'',acts:[]},
+ {no:'20',name:'Recruitment Closure',det:'Update candidate status, joining details and recruitment tracker; close the requirement after successful joining.',own:'HR',sup:'Delivery',tat:'Day 1/2',mn:null,mx:null,cto:[],ch:'Linked',rev:'No change to the step. The updated recruitment tracker is the data source for the review mechanism.',out:'',acts:[]}
 ];
-const RP_FINDINGS = [
-  ['Panel time is the real bottleneck, and the wrong team owns it.','HR is held to the L1/L2 TAT but controls none of the panel’s calendar. Ten of the CTO’s 32 comments are about the panel.'],
-  ['Every offer waits for CTO + CFO, even though the budget is set on day 1.','Two senior approvals on the critical path of every hire. Offers within band should not need them.'],
-  ['Only the “yes” path is written down.','No rejection closure, no on-hold rule, no formal offer letter or acceptance deadline, no background verification.'],
-  ['The process stops at the selection email.','The 30–90 day notice period, when most offer dropouts happen, is unmanaged. The CTO’s engagement, buddy and orientation notes have no home stage.'],
-  ['One sourcing channel and no pipeline target.','Career page only, and the TAT reads “1–2 days onward”, so a thin pipeline is not flagged.'],
-  ['Feedback has no fixed SLA or format.','The TAT says 24 h, the CTO says “TBD”, and there is no structured form or Hire / No-hire rule.']];
-const RP_THEMES = [
-  {t:'Requisition quality',q:['Receipt of correct JD','Change in technical requirements','JD – primary and secondary skills, must have, good to have','Opportunity: project / bench','Expected salary range (budget)','Automation in Keka – edit and approve','Requisition form with panel and number of rounds'],
-   a:'One mandatory Keka requisition form with an approval workflow. Changes after posting go back through the kickoff and are logged.',o:'HR (form), Delivery (content)',s:'1–2'},
-  {t:'Screening approach',q:['Salaries from previous appraisals','Salary trajectory across timelines','Discussion rather than an interview'],
-   a:'A screening scorecard plus a conversational call script that maps CTC at every job move and appraisal.',o:'HR',s:'5–6'},
-  {t:'Panel capacity',q:['Panel availability','First round panel has to be large','Panel rotation','Train the panel'],
-   a:'An L1 pool of 8–10 panelists on a rotation roster with weekly pre-blocked slots. Interviewer training at induction and quarterly calibration.',o:'Delivery heads, CTO',s:'7, 9'},
-  {t:'Interview conduct',q:['Scan the resume','Need to change mentality from rejecting to selecting','Reach 2–3 mins before the meeting','Need to check the resume thoroughly through questions','Try to stick to 30 mins wherever possible','Make the interviewee talk'],
-   a:'A one-page interviewer standard covered in panel training: prepare, be early, keep to 30 minutes, the candidate talks, test the CV, look for reasons to select.',o:'CTO, HR',s:'7, 9'},
-  {t:'Feedback quality & decisiveness',q:['Objective feedback','Short sentences, not too ambiguous','Bullet points','Lead time TBD','Decisive panel for L2'],
-   a:'A structured Keka feedback form (rating per skill + bullet evidence + Hire / No hire). 24 h SLA with a 12 h reminder and a 24 h escalation.',o:'Panel, HR enforces',s:'8, 10'},
-  {t:'HR evaluation & tools',q:['HR IEF','Discussion transcripts through an app','Can recommend with respect to salary range'],
-   a:'An HR IEF form for every HR discussion, a transcription tool used only with the candidate’s consent, and a salary recommendation inside the approved band.',o:'Anuja',s:'12'},
-  {t:'Candidate experience after the offer',q:['Engagement with the candidate offered but not onboarded','Making the person feel welcomed, part of the organization, navigating the hybrid model','Orientation plan','Buddy system'],
-   a:'A notice-period engagement cadence, a buddy assigned before DOJ, a Day-1 orientation plan and a hybrid-working guide.',o:'HR, Delivery',s:'17–19 (new)'}];
-const RP_TOBE = [
-  {k:'A',name:'Plan',day:'Day 0–1',steps:[['Raise requisition in Keka','Delivery · mandatory fields incl. panel, rounds, budget band',true],['Approve requisition','Delivery head + HR · budget band locked',true],['Kickoff call (15 min)','HR + hiring manager · sample profiles, knock-outs, channels, panel slots']],gate:'Approved requisition with panel and rounds named'},
-  {k:'B',name:'Source',day:'Day 1–5',steps:[['Post to career page + chosen channels','HR · Keka-integrated'],['Referral push','HR · internal announcement',true],['Day-5 pipeline check','HR · 15–20 relevant CVs, or escalate',true]],gate:'Enough qualified CVs to shortlist'},
-  {k:'C',name:'Screen',day:'Day 2–6',steps:[['CV screen with scorecard','HR · within 1 day of receipt'],['HR screening conversation','HR · salary trajectory, notice, interest'],['Collect pre-offer documents early','HR · slips, appraisal letter, other offers']],gate:'Screen pass, documents requested'},
-  {k:'D',name:'Evaluate',day:'Day 4–10',steps:[['L1 interview (30 min)','Panel · from pre-blocked rotation slots'],['L1 feedback in Keka ≤ 24 h','Panel · structured form'],['L2 interview, decisive','Senior panel · Hire / No hire'],['L2 feedback ≤ 24 h','Panel'],['Status update to every candidate ≤ 24 h','HR · incl. rejections',true]],gate:'Technical selection confirmed'},
-  {k:'E',name:'Offer',day:'Day 9–12',steps:[['HR fit discussion + HR IEF','Anuja (backup named)'],['Compensation approval','Within band: HR + Anuja same day · Exception: CTO + CFO ≤ 24 h'],['Offer letter from Keka','HR · acceptance in 3–5 days',true],['Background verification','HR · starts on acceptance',true]],gate:'Signed offer'},
-  {k:'F',name:'Engage',day:'Notice period',steps:[['Engagement call every 2 weeks','HR',true],['Assign buddy, manager welcome note','Delivery',true],['Preboarding in Keka','HR · candidate'],['IT / Admin request on acceptance','HR → IT / Admin'],['Readiness check 5 days before DOJ','HR · IT · Delivery',true]],gate:'Ready for Day 1'},
-  {k:'G',name:'Join & close',day:'DOJ → +90 days',steps:[['Day 1: originals, orientation, buddy, hybrid guide','HR · Delivery'],['Close requisition & update tracker','HR'],['30 / 60 / 90-day check-ins','Manager + HR',true],['Monthly metrics review & retro','HR · Delivery · CTO',true]],gate:'New joiner settled, requisition closed'}];
+const RP_REVIEW = {cto:'Review mechanism', note:'The CTO asked for a review mechanism for the whole process; the source sheet does not say how it should work. Below is a proposed set-up for the CTO to confirm. It plugs into the monthly HR–Delivery governance review already in the HR tracker (A19).',
+ forums:[
+  ['Weekly recruitment review','Weekly','Radhika Chandak','Delivery heads / hiring managers, Anuja Gautam','Open requisitions and their stage; stage-wise TAT vs the agreed TAT; panel availability and rotation; L1/L2 feedback received on time; offered-not-onboarded candidates','Blockers named with an owner and date'],
+  ['Monthly HR–Delivery governance review (recruitment section)','Monthly','Anuja Gautam','All process owners, Delivery heads','Recruitment KPIs; requisition changes after approval; panel training status; feedback quality samples; deviations from the process','Decisions logged; RED items owned (links to HR tracker A19)'],
+  ['Quarterly CTO process review','Quarterly','CTO','Radhika Chandak, Anuja Gautam, L1/L2 panel leads','Panel calibration (selecting, not rejecting); L2 decisiveness; feedback lead time; changes to the recruitment process','Approved process changes and panel roster for the next quarter']],
+ acts:['R18']};
+const RP_ACTIONS = [
+ ['R01','1','Requisition form with panel and number of rounds; JD primary/secondary, must have/good to have; project/bench; budget','Build the standard requisition form in Keka (JD primary/secondary skills, must have/good to have, project/bench, salary range, panel, number of rounds)','Radhika Chandak','Delivery heads','30-day','Links to HR tracker A09'],
+ ['R02','1','Automation in keka, edit and approve','Set up the Keka edit-and-approve workflow for requisitions','Radhika Chandak','Anuja Gautam','30-day',''],
+ ['R03','1','Receipt of correct JD; Change in technical requirements','Agree the JD acceptance check, and that any change in technical requirements is re-approved in Keka','Radhika Chandak','Delivery heads','30-day','Links to HR tracker A09'],
+ ['R04','5','Salaries from previous appraisals; Salary trajectory across timelines','Add the appraisal-wise salary and salary-trajectory check to the CV screening checklist','Radhika Chandak','Anuja Gautam','30-day',''],
+ ['R05','5','Discussion rather than an interview','Brief recruiters to run screening conversations as a discussion, not an interview','Radhika Chandak','—','30-day',''],
+ ['R06','7','Panel availability; First round panel has to be large; Panel rotation','Build a large first-round (L1) panel pool with a rotation roster','CTO','Delivery heads','30-day',''],
+ ['R07','7','Train the panel; Scan the resume; rejecting to selecting; Reach 2-3 mins early; check the resume through questions; 30 mins; Make the interviewee talk','Train the panel on the interviewer standard: scan the resume, select not reject, reach 2–3 min early, probe the resume, 30 min, make the interviewee talk','CTO','Anuja Gautam, Radhika Chandak','60-day',''],
+ ['R08','8','Objective feedback; Short sentences, not too ambiguous; Bullet points','Set the feedback format: objective, bullet points, short and unambiguous sentences','Radhika Chandak','CTO','30-day','Links to HR tracker A10'],
+ ['R09','8','Lead time TBD','Decide the feedback lead time for L1 (and L2)','CTO','Radhika Chandak','30-day','Links to HR tracker A10'],
+ ['R10','10','Decisive panel for L2','Name the decisive L2 panel that gives a clear final decision','CTO','Delivery heads','30-day',''],
+ ['R11','12','HR IEF','Introduce the HR IEF for every HR discussion','Anuja Gautam','—','30-day',''],
+ ['R12','12','Discussion transcripts through an app','Choose an app to capture HR discussion transcripts','Anuja Gautam','—','60-day',''],
+ ['R13','12','Can recommend with respect to salary range','Agree how Anuja’s salary-range recommendation feeds the compensation discussion','Anuja Gautam','CFO, CTO','30-day',''],
+ ['R14','12','Engagement with the candidate offered but not onboarded','Create the engagement plan for candidates offered but not yet onboarded','Anuja Gautam','Radhika Chandak','60-day',''],
+ ['R15','12','Making the person feel welcomed, part of the organization, navigating the hybrid model','Prepare the welcome and hybrid-model guide for new joiners','Anuja Gautam','—','60-day',''],
+ ['R16','12','Orientation plan','Create the orientation plan','Anuja Gautam','Delivery heads','60-day',''],
+ ['R17','12','Buddy system','Launch the buddy system','Anuja Gautam','Delivery heads','60-day',''],
+ ['R18','Review','Review mechanism','Set up the recruitment review mechanism (weekly, monthly, quarterly) and agree it with the CTO','Radhika Chandak','Anuja Gautam, CTO','30-day','Links to HR tracker A19, A21']];
 const RP_KPIS = [
-  ['Time to offer','Approved requisition → offer letter','≤ 12 working days','Lower'],
-  ['Time to fill','Approved requisition → joining','Track; set after baseline','Lower'],
-  ['Feedback within 24 h','L1 + L2 feedback submitted on time','≥ 90%','Higher'],
-  ['Candidate closure within 24 h','Every decision communicated in Keka','≥ 95%','Higher'],
-  ['L1 → L2 pass rate','Signals screening / JD quality','30–50% band','In band'],
-  ['Interviews per offer','L1 interviews held per offer made','≤ 4','Lower'],
-  ['Offer acceptance','Offers accepted / offers made','≥ 85%','Higher'],
-  ['Offer-to-join','Joined / accepted','≥ 85%','Higher'],
-  ['Requisitions changed after posting','Change in technical requirements','< 10%','Lower'],
-  ['90-day retention','New joiners still with us at 90 days','≥ 95%','Higher'],
-  ['Source mix','Referral / career page / portal / consultant','Referrals ≥ 30%','Higher']];
-const RP_RACI_H = ['HR','Delivery / Hiring mgr','Technical panel','Anuja','CTO','CFO','IT / Admin'];
-const RP_RACI = [
-  ['Raise & approve requisition',['R','A','','I','C','C','']],
-  ['Kickoff & channel plan',['A','R','I','','','','']],
-  ['Sourcing & CV screening',['A/R','C','','','','','']],
-  ['HR screening conversation',['A/R','','','I','','','']],
-  ['Panel pool, rotation & slots',['C','A','R','','I','','']],
-  ['L1 / L2 interviews & feedback',['R','A','R','','I','','']],
-  ['Technical selection decision',['I','A','R','','','','']],
-  ['Candidate status updates',['A/R','I','','C','','','']],
-  ['HR fit discussion (HR IEF)',['R','I','','A','','','']],
-  ['Compensation within band',['R','I','','A','I','I','']],
-  ['Compensation exception',['R','C','','C','A','A','']],
-  ['Offer letter & BGV',['A/R','I','','I','','','']],
-  ['Notice-period engagement & buddy',['A','R','','C','','','']],
-  ['Preboarding & IT readiness',['A','C','','','','','R']],
-  ['Day 1 orientation',['A','R','','','','','R']],
-  ['30/60/90 check-ins & metrics',['A','R','','I','I','','']],
-  ['Panel training & calibration',['R','R','C','','A','','']]];
-const RP_ROLL = [
-  {k:'Weeks 1–2',name:'Quick wins',items:[['Keka requisition form live with mandatory fields + approval','HR, Delivery'],['24 h feedback SLA + structured Keka feedback form with reminders','HR, CTO'],['Status update to candidates at every stage','HR'],['Agree within-band approval delegation','CTO, CFO'],['Name a backup for HR discussions','Anuja']]},
-  {k:'Weeks 3–4',name:'Panel & screening',items:[['L1 panel pool (8–10), rotation roster, weekly pre-blocked slots','Delivery heads'],['Publish interviewer standard + first panel training','CTO, HR'],['Screening scorecard + call script with salary trajectory','HR'],['Channel mix + referral policy','HR']]},
-  {k:'Days 30–60',name:'Offer & engagement',items:[['Offer letter with acceptance date + BGV in Keka','HR'],['Notice-period engagement cadence + buddy programme','HR, Delivery'],['Orientation plan + hybrid-working guide','HR'],['IT / Admin request triggered on acceptance','HR, IT'],['Pilot a transcription tool (with consent)','Anuja']]},
-  {k:'Days 60–90',name:'Measure & improve',items:[['Monthly recruitment KPI review','HR, CTO'],['30/60/90-day joiner check-ins','Managers, HR'],['Quarterly panel calibration','CTO'],['First hiring retro; refine TATs from actual data','HR, Delivery']]}];
+ ['Requisitions approved in Keka with a complete form','1','Share of requisitions with every form field filled and approved','%','Higher',1],
+ ['Requisitions changed after approval','1','Change in technical requirements after approval','count/month','Lower',null],
+ ['Salary-trajectory check done at screening','5','Shortlisted CVs with the check recorded','%','Higher',1],
+ ['L1 panel pool size','7','Trained panelists on the L1 rotation','people','Higher',null],
+ ['L1 interviews within 30 min','7','Interviews that kept to 30 minutes','%','Higher',0.8],
+ ['Feedback within lead time','8, 10','L1 + L2 feedback submitted within the agreed lead time','%','Higher',0.9],
+ ['Offered-not-onboarded dropouts','12','Candidates who accepted but did not join','count/month','Lower',null],
+ ['Offer-to-join','12–19','Joined / accepted offers','%','Higher',0.85]];
+const RP_OBS = [
+ ['Candidates rejected at screening, L1 or L2 have no defined closure step; candidate feedback appears only after the HR discussion.','Feedback – Candidate'],
+ ['The Feedback – Candidate row has no serial number.','Feedback – Candidate'],
+ ['The selection email (stage 16) is not a formal offer letter; there is no acceptance deadline or background-verification step.','16'],
+ ['Every offer goes to CTO + CFO although the budget is fixed at requisition; offers within budget could be delegated.','14'],
+ ['The career page is the only sourcing channel; there is no pipeline target.','3–4'],
+ ['“Before DOJ” gives no lead time for IT / Admin preparation.','18']];
 
 function renderRecruit(){
   const all = RP_STAGES;
-  const auN = t => all.reduce((s,x)=>s+x.au.filter(a=>a[0]===t).length,0);
-  const ctoN = all.reduce((s,x)=>s+x.cto.length,0);
+  const ctoN = all.reduce((s,x)=>s+x.cto.length,0) + 1;
+  const chg = all.filter(x=>x.ch==='CTO').length;
+  const lnk = all.filter(x=>x.ch==='Linked').length;
   const path = all.filter(x=>x.mn!=null && !x.parallel);
   const bestT = path.reduce((s,x)=>s+x.mn,0), worstT = path.reduce((s,x)=>s+x.mx,0);
-  const TARGET = 12;
-  const tone = {gap:['Gap','bad'],risk:['Risk','warn'],fix:['Recommend','info'],ok:['Works well','ok']};
+  const dfmt = s => fmtD(toDate(s));
+  const f = S.rf || 'all';
+  const keep = x => f==='all' || (f==='cto' && x.ch==='CTO') || (f==='lnk' && x.ch!=='None');
+  const chPill = x => x.ch==='CTO' ? pill('Changed by CTO','info') : x.ch==='Linked' ? pill('Linked','warn') : pill('No change','');
 
   const tiles = `<section class="tiles" aria-label="Recruitment summary">
-    <div class="tile"><span class="eyebrow">Stages audited</span><span class="v">${all.length}</span></div>
+    <div class="tile"><span class="eyebrow">Process stages</span><span class="v">${all.length}</span></div>
     <div class="tile"><span class="eyebrow">CTO comments</span><span class="v">${ctoN}</span></div>
-    <div class="tile bad"><span class="eyebrow">Gaps</span><span class="v">${auN('gap')}</span></div>
-    <div class="tile warn"><span class="eyebrow">Risks</span><span class="v">${auN('risk')}</span></div>
-    <div class="tile"><span class="eyebrow">Req → offer today</span><span class="v">${bestT}–${worstT}<span class="muted" style="font-size:13px"> days</span></span></div>
-    <div class="tile ok"><span class="eyebrow">Proposed target</span><span class="v">≤ ${TARGET}<span class="muted" style="font-size:13px"> days</span></span></div>
+    <div class="tile ok"><span class="eyebrow">Stages changed by CTO</span><span class="v">${chg}</span></div>
+    <div class="tile warn"><span class="eyebrow">Linked stages</span><span class="v">${lnk}</span></div>
+    <div class="tile"><span class="eyebrow">Actions</span><span class="v">${RP_ACTIONS.length}</span></div>
+    <div class="tile"><span class="eyebrow">Req → offer (stated TATs)</span><span class="v">${bestT}–${worstT}<span class="muted" style="font-size:13px"> days</span></span></div>
   </section>`;
 
-  const findings = `<div class="grid g2">
-    <section class="panel"><div class="panel-h"><h2>What the audit found</h2><span class="muted">${RP_FINDINGS.length} key findings</span></div>
-      <ol class="find" style="margin:0;padding:0">${RP_FINDINGS.map(f=>`<li><div><b>${esc(f[0])}</b><span>${esc(f[1])}</span></div></li>`).join('')}</ol></section>
-    <section class="panel"><div class="panel-h"><h2>What changes</h2></div>
-      <div class="att">${[
-        ['Delivery owns panel slots','Pre-blocked weekly slots from a rotating, trained L1 pool.'],
-        ['Approve within band','CTO + CFO only for exceptions, with a 24 h SLA.'],
-        ['Close every loop','24 h status update at every decision, plus offer letter, acceptance date and BGV.'],
-        ['Manage the notice period','Engagement every 2 weeks, buddy before DOJ, readiness check 5 days before joining.'],
-        ['Measure it','11 KPIs reviewed monthly, starting with time to offer and feedback SLA.']
-      ].map(x=>`<div class="att-i"><span class="pill ok">New</span><div><div class="t">${esc(x[0])}</div><div class="m">${esc(x[1])}</div></div><span></span></div>`).join('')}</div></section>
+  const summary = `<div class="grid g2">
+    <section class="panel"><div class="panel-h"><h2>What the CTO’s comments change</h2><span class="muted">${chg} stages + review mechanism</span></div>
+      <div class="att">${all.filter(x=>x.ch==='CTO').map(x=>`<div class="att-i"><span class="stg-no" style="width:34px;height:34px">${esc(x.no)}</span><div><div class="t">${esc(x.name)}</div><div class="m">${esc(x.out)}</div></div><span class="pill info plain">${x.cto.length}</span></div>`).join('')}
+      <div class="att-i"><span class="stg-no" style="width:34px;height:34px">★</span><div><div class="t">Review mechanism (whole process)</div><div class="m">Weekly, monthly and quarterly reviews — proposed, to confirm with the CTO</div></div><span class="pill info plain">1</span></div></div></section>
+    <section class="panel"><div class="panel-h"><h2>How to read this</h2></div>
+      <div class="att">
+        <div class="att-i">${pill('Changed by CTO','info')}<div><div class="t">The step is revised to include the CTO’s comments made against it.</div><div class="m">Comments stay at the point where the CTO wrote them.</div></div><span></span></div>
+        <div class="att-i">${pill('Linked','warn')}<div><div class="t">The step itself is unchanged but uses an output of a CTO change.</div><div class="m">For example, Compensation uses Anuja’s salary recommendation.</div></div><span></span></div>
+        <div class="att-i">${pill('No change','')}<div><div class="t">No CTO comment; the step stays as written.</div><div class="m">Owner, supporting team and TAT are kept from the source sheet.</div></div><span></span></div>
+      </div>
+      <p class="muted" style="font-size:12px;margin:12px 0 0">Source: ${esc(RP_META.source)}. Recruitment process owner: ${esc(RP_META.owner)}; HR governance: ${esc(RP_META.hr)} (per the HR tracker).</p></section>
   </div>`;
 
-  // stage audit
-  const f = S.rf || 'all';
-  const keep = x => f==='all' || (f==='cto' && x.cto.length) || (f==='gap' && x.au.some(a=>a[0]==='gap'||a[0]==='risk'));
-  const stageHtml = RP_PHASES.map((p,pi)=>{
-    const L = all.filter(x=>x.ph===p.id && keep(x)); if (!L.length) return '';
-    const P = all.filter(x=>x.ph===p.id && x.mn!=null && !x.parallel);
-    const a1=P.reduce((s,x)=>s+x.mn,0), a2=P.reduce((s,x)=>s+x.mx,0);
-    const rng = P.length ? (a1===a2 ? `${a1} day${a1===1?'':'s'}` : `${a1}–${a2} days`) : 'before / on DOJ';
-    return `<div class="phase-h"><span class="num">PHASE ${pi+1}</span><h3>${esc(p.name)}</h3><span class="muted mono" style="font-size:12px">${rng}</span></div>
-    ${L.map(x=>{
-      const g=x.au.filter(a=>a[0]==='gap').length, r=x.au.filter(a=>a[0]==='risk').length;
-      return `<details class="stg" ${S.rx?'open':''}><summary>
-        <span class="stg-no">${esc(x.no)}</span>
-        <div style="min-width:0"><div class="stg-t">${esc(x.name)}${x.parallel?' <span class="pill plain" style="vertical-align:2px">parallel</span>':''}</div>
-          <div class="stg-m">Owner: <b>${esc(x.own)}</b>${x.sup&&x.sup!=='—'?` · with ${esc(x.sup)}`:''} · TAT: <span class="mono">${esc(x.tat)}</span></div></div>
-        <div class="stg-f">${x.cto.length?`<span class="pill info">${x.cto.length} CTO</span>`:''}${g?`<span class="pill bad">${g} gap${g>1?'s':''}</span>`:''}${r?`<span class="pill warn">${r} risk${r>1?'s':''}</span>`:''}${!g&&!r?'<span class="pill ok">Sound</span>':''}</div>
-      </summary>
-      <div class="stg-b">
+  const stages = all.filter(keep).map(x=>`<details class="stg" ${S.rx?'open':''}><summary>
+      <span class="stg-no">${esc(x.no)}</span>
+      <div style="min-width:0"><div class="stg-t">${esc(x.name)}</div>
+        <div class="stg-m">Owner: <b>${esc(x.own)}</b>${x.sup&&x.sup!=='—'?` · with ${esc(x.sup)}`:''} · TAT: <span class="mono">${esc(x.tat)}</span></div></div>
+      <div class="stg-f">${x.cto.length?`<span class="pill info plain">${x.cto.length} CTO</span>`:''}${chPill(x)}</div>
+    </summary>
+    <div class="stg-b">
+      <div class="rv">
         <div><span class="eyebrow">Current step</span><div>${esc(x.det)}</div></div>
-        ${x.cto.length?`<div class="quote"><span class="eyebrow">CTO comments</span><ul>${x.cto.map(c=>`<li>${esc(c)}</li>`).join('')}</ul></div>`:''}
-        <div><span class="eyebrow">Audit</span><div class="au" style="margin-top:6px">${x.au.map(a=>`<div class="au-i"><span>${pill(tone[a[0]][0],tone[a[0]][1])}</span><span>${esc(a[1])}</span></div>`).join('')}</div></div>
-      </div></details>`;}).join('')}`;
-  }).join('');
+        <div class="quote"><span class="eyebrow">CTO comments on this point</span>${x.cto.length?`<ul>${x.cto.map(c=>`<li>${esc(c)}</li>`).join('')}</ul>`:'<div class="muted">None</div>'}</div>
+        <div class="${x.ch==='CTO'?'rv-new':''}"><span class="eyebrow">Revised step</span><div>${x.rev?esc(x.rev):'<span class="muted">No change.</span>'}</div>${x.acts.length?`<div class="people" style="margin-top:8px">${x.acts.map(a=>`<span class="person co">${a}</span>`).join('')}</div>`:''}</div>
+      </div>
+    </div></details>`).join('');
 
-  // gantt
-  let cMin=0, cMax=0;
-  const scale = worstT;
-  const pct = v => (v/scale*100).toFixed(2)+'%';
-  const gRows = path.map(x=>{
-    const r = `<div class="g-row"><div class="g-lab" title="${esc(x.name)}"><span class="mono">${esc(x.no)}</span>${esc(x.name)}</div>
-      <div class="g-track"><span class="g-tgt" style="left:${pct(TARGET)}"></span>
-        <span class="g-best" style="left:${pct(cMin)};width:${x.mn?pct(x.mn):'4px'}"></span>
-        <span class="g-worst" style="left:${pct(cMax)};width:${x.mx?pct(x.mx):'4px'}"></span></div>
-      <div class="mono muted" style="text-align:right;white-space:nowrap">${esc(x.tat)}</div></div>`;
-    cMin+=x.mn; cMax+=x.mx; return r;
-  }).join('');
-  const ticks = [0,5,10,15,scale].filter((v,i,a)=>a.indexOf(v)===i && v<=scale).map(v=>`<span style="left:${pct(v)}">${v}</span>`).join('');
+  const rv = RP_REVIEW;
+  const review = `<div class="quote" style="margin-bottom:12px"><span class="eyebrow">CTO comment</span><div>${esc(rv.cto)}</div></div>
+    <p class="lede">${esc(rv.note)}</p>
+    <div class="cards">${rv.forums.map(r=>`<article class="card"><div class="card-h"><h3>${esc(r[0])}</h3>${pill(r[1],'plain')}</div>
+      <div class="people"><span class="person">Chair: ${esc(r[2])}</span><span class="person co">${esc(r[3])}</span></div>
+      <dl style="margin:0"><dt>Reviews</dt><dd>${esc(r[4])}</dd><dt>Output</dt><dd>${esc(r[5])}</dd></dl></article>`).join('')}</div>`;
 
-  const tobe = RP_TOBE.map(p=>`<article class="tb"><div class="tb-h"><h3><span class="k">${p.k}</span> ${esc(p.name)}</h3><span class="mono muted" style="font-size:12px">${esc(p.day)}</span></div>
-    <ol>${p.steps.map(s=>`<li><span>${esc(s[0])}${s[2]?'<span class="tag-new">New</span>':''}</span><small>${esc(s[1])}</small></li>`).join('')}</ol>
-    <div class="gate"><b>Gate →</b><span>${esc(p.gate)}</span></div></article>`).join('');
+  const acts = `<div class="tbl-wrap"><table><thead><tr><th>ID</th><th>Stage</th><th>Action</th><th>CTO comment</th><th>Owner</th><th>Milestone</th><th>Target</th></tr></thead><tbody>
+    ${RP_ACTIONS.map(a=>`<tr><td class="num">${a[0]}</td><td class="num">${esc(a[1])}</td><td class="wide"><strong>${esc(a[3])}</strong>${a[7]?`<div class="muted" style="font-size:12px">${esc(a[7])}</div>`:''}</td><td class="mid muted">${esc(a[2])}</td><td class="mid">${esc(a[4])}${a[5]&&a[5]!=='—'?`<div class="muted" style="font-size:12px">with ${esc(a[5])}</div>`:''}</td><td>${esc(a[6])}</td><td class="num">${dfmt(RP_MS[a[6]])}</td></tr>`).join('')}</tbody></table></div>`;
 
-  const themes = RP_THEMES.map(t=>`<article class="card theme"><div class="card-h"><h3>${esc(t.t)}</h3><span class="pill info">${t.q.length} comments</span></div>
-    <div class="quote"><ul style="margin:0">${t.q.map(c=>`<li>${esc(c)}</li>`).join('')}</ul></div>
-    <div class="act"><span class="eyebrow">Action</span>${esc(t.a)}</div>
-    <div class="people"><span class="person">${esc(t.o)}</span><span class="person co">Stage ${esc(t.s)}</span></div></article>`).join('');
+  const kpis = `<div class="tbl-wrap"><table><thead><tr><th>KPI</th><th>Stage</th><th>Definition</th><th>Unit</th><th>Better if</th><th>Proposed target</th></tr></thead><tbody>
+    ${RP_KPIS.map(k=>`<tr><td><strong>${esc(k[0])}</strong></td><td class="num">${esc(k[1])}</td><td class="mid">${esc(k[2])}</td><td>${esc(k[3])}</td><td>${esc(k[4])}</td><td class="num">${k[5]==null?'<span class="muted">Set after baseline</span>':(k[3]==='%'?Math.round(k[5]*100)+'%':k[5])}</td></tr>`).join('')}</tbody></table></div>`;
 
-  const kpis = `<div class="tbl-wrap"><table><thead><tr><th>KPI</th><th>Definition</th><th>Proposed target</th><th>Better if</th></tr></thead><tbody>
-    ${RP_KPIS.map(k=>`<tr><td><strong>${esc(k[0])}</strong></td><td class="mid">${esc(k[1])}</td><td class="num">${esc(k[2])}</td><td>${esc(k[3])}</td></tr>`).join('')}</tbody></table></div>`;
+  const obs = `<details class="stg"><summary><span class="stg-no">+</span><div><div class="stg-t">Additional observations (not CTO comments)</div><div class="stg-m">${RP_OBS.length} points noticed while revising the plan. Optional, for discussion.</div></div><div class="stg-f">${pill('Optional','')}</div></summary>
+    <div class="stg-b"><div class="au">${RP_OBS.map(o=>`<div class="au-i"><span class="mono muted">Stage ${esc(o[1])}</span><span>${esc(o[0])}</span></div>`).join('')}</div></div></details>`;
 
-  const lt = v => { const s=String(v||'').trim(); if(!s) return '<span class="muted">·</span>'; return s.split('/').map(x=>`<span class="lt ${x}">${x}</span>`).join(' '); };
-  const raci = `<div class="tbl-wrap raci"><table><thead><tr><th>Activity</th>${RP_RACI_H.map(h=>`<th style="text-align:center;white-space:normal;min-width:84px">${esc(h)}</th>`).join('')}</tr></thead>
-    <tbody>${RP_RACI.map(r=>`<tr><td class="mid"><strong>${esc(r[0])}</strong></td>${r[1].map(v=>`<td class="rc">${lt(v)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
-
-  const roll = RP_ROLL.map(p=>`<article class="tb"><div class="tb-h"><h3>${esc(p.name)}</h3><span class="mono muted" style="font-size:12px">${esc(p.k)}</span></div>
-    <ol>${p.items.map(i=>`<li><span>${esc(i[0])}</span><small>${esc(i[1])}</small></li>`).join('')}</ol></article>`).join('');
-
-  const nav = [['rp-summary','Summary'],['rp-stages','Stage audit'],['rp-tat','Turnaround'],['rp-themes','CTO themes'],['rp-tobe','Recommended flow'],['rp-kpi','KPIs'],['rp-raci','RACI'],['rp-roll','Rollout']];
-  return `<div class="rp-hero"><div><span class="eyebrow">Recruitment · audit & plan</span><h2 style="font-size:24px;margin-top:4px">Recruitment plan</h2>
-      <p>The current 20-step recruitment process, audited stage by stage against the CTO’s comments, with the recommended flow, KPIs, roles and a 90-day rollout.</p></div>
+  const nav = [['rp-summary','Summary'],['rp-stages','Revised process'],['rp-review','Review mechanism'],['rp-actions','Action plan'],['rp-kpi','KPIs'],['rp-obs','Other observations']];
+  return `<div class="rp-hero"><div><span class="eyebrow">Recruitment · revised with CTO comments</span><h2 style="font-size:24px;margin-top:4px">Recruitment plan</h2>
+      <p>The recruitment process as presented, with each CTO comment applied to the point it was made against, plus the review mechanism and an action plan on the HR tracker’s 30/60/90 milestones.</p></div>
     <div class="rp-tools"><button class="btn" type="button" id="rpCopy">Copy link</button><button class="btn" type="button" id="rpPrint">Print / PDF</button></div></div>
   <nav class="rp-nav" aria-label="Recruitment plan sections">${nav.map(n=>`<button type="button" data-jump="${n[0]}">${n[1]}</button>`).join('')}</nav>
-
-  <section class="rp-sec" id="rp-summary" style="margin-top:12px">${tiles}${findings}</section>
-
-  <section class="rp-sec" id="rp-stages"><div class="panel-h"><div><h2>Stage-by-stage audit</h2><p class="lede">Each stage as written today, the CTO’s comments on it, and the audit verdict. Open a stage to see the detail.</p></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap"><div class="seg" role="group" aria-label="Filter stages">${[['all','All'],['cto','With CTO comments'],['gap','Gaps & risks']].map(b=>`<button type="button" data-rf="${b[0]}" aria-pressed="${f===b[0]}">${b[1]}</button>`).join('')}</div>
+  <section class="rp-sec" id="rp-summary" style="margin-top:12px">${tiles}${summary}</section>
+  <section class="rp-sec" id="rp-stages"><div class="panel-h"><div><h2>Revised process, stage by stage</h2><p class="lede">Current step, the CTO’s comments on that point, and the revised step. Owners, supporting teams and TATs are as presented.</p></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><div class="seg" role="group" aria-label="Filter stages">${[['all','All'],['cto','Changed by CTO'],['lnk','Changed or linked']].map(b=>`<button type="button" data-rf="${b[0]}" aria-pressed="${f===b[0]}">${b[1]}</button>`).join('')}</div>
     <button class="btn" type="button" id="rpExpand">${S.rx?'Collapse all':'Expand all'}</button></div></div>
-    ${stageHtml || '<div class="empty">No stages match this filter.</div>'}</section>
-
-  <section class="rp-sec" id="rp-tat"><div class="panel-h"><div><h2>Turnaround: requisition to offer</h2><p class="lede">Stated TATs added up along the main path, assuming no waiting between steps. Best case ${bestT} working days, worst case ${worstT}. This excludes the candidate’s notice period and the parallel candidate-feedback step. The dashed line is the proposed ${TARGET}-day target.</p></div>
-    <div class="legend"><span><i style="background:var(--accent)"></i>Best case</span><span><i style="background:var(--warn);opacity:.55"></i>Worst case</span><span><i style="border-left:2px dashed var(--bad);border-radius:0;width:0"></i>Target</span></div></div>
-    <div class="panel"><div class="gantt">${gRows}<div class="g-axis"><span></span><div class="ticks">${ticks}</div><span class="muted" style="text-align:right">working days</span></div></div></div></section>
-
-  <section class="rp-sec" id="rp-themes"><div class="panel-h"><div><h2>CTO comments, grouped into themes</h2><p class="lede">All ${ctoN} comments sorted into ${RP_THEMES.length} themes, each with one action and an owner.</p></div></div>
-    <div class="cards">${themes}</div></section>
-
-  <section class="rp-sec" id="rp-tobe"><div class="panel-h"><div><h2>Recommended recruitment flow</h2><p class="lede">Seven phases, each ending in a clear gate. Steps marked <span class="tag-new" style="margin:0">New</span> fill gaps found in the audit.</p></div></div>
-    <div class="tobe">${tobe}</div></section>
-
-  <section class="rp-sec" id="rp-kpi"><div class="panel-h"><div><h2>Recruitment KPIs</h2><p class="lede">Proposed targets. Confirm them after the first month of baseline data.</p></div></div>${kpis}</section>
-
-  <section class="rp-sec" id="rp-raci"><div class="panel-h"><div><h2>Roles &amp; responsibilities</h2><p class="lede">One accountable owner per activity. The only joint approval is a compensation exception (CTO + CFO).</p></div>
-    <div class="legend"><span><span class="lt A">A</span> Accountable</span><span><span class="lt R">R</span> Responsible</span><span><span class="lt C">C</span> Consulted</span><span><span class="lt I">I</span> Informed</span></div></div>${raci}</section>
-
-  <section class="rp-sec" id="rp-roll"><div class="panel-h"><div><h2>90-day rollout</h2><p class="lede">Quick wins first. Most of them are Keka configuration and agreed rules, not new tools.</p></div></div>
-    <div class="roll">${roll}</div></section>`;
+    ${stages || '<div class="empty">No stages match this filter.</div>'}</section>
+  <section class="rp-sec" id="rp-review"><div class="panel-h"><div><h2>Review mechanism</h2></div></div>${review}</section>
+  <section class="rp-sec" id="rp-actions"><div class="panel-h"><div><h2>Action plan</h2><p class="lede">One action per CTO comment (grouped where comments belong together), dated on the HR tracker’s milestones: 30-day ${dfmt(RP_MS['30-day'])}, 60-day ${dfmt(RP_MS['60-day'])}.</p></div></div>${acts}</section>
+  <section class="rp-sec" id="rp-kpi"><div class="panel-h"><div><h2>KPIs for the review mechanism</h2><p class="lede">Each KPI tracks one CTO change. Targets are proposals to confirm in review.</p></div></div>${kpis}</section>
+  <section class="rp-sec" id="rp-obs">${obs}</section>`;
 }
 
 /* ---------- events ---------- */
@@ -906,7 +835,7 @@ function bindView(){
   document.querySelectorAll('[data-rf]').forEach(b=>b.addEventListener('click',()=>{ S.rf=b.dataset.rf; const y=window.scrollY; drawView(); window.scrollTo(0,y); }));
   const rx=$('#rpExpand'); if(rx) rx.addEventListener('click',()=>{ S.rx=!S.rx; const y=window.scrollY; drawView(); window.scrollTo(0,y); });
   const rp=$('#rpPrint'); if(rp) rp.addEventListener('click',()=>window.print());
-  const rc=$('#rpCopy'); if(rc) rc.addEventListener('click',()=>{ const u=location.origin+location.pathname+'#recruitment'; (navigator.clipboard?navigator.clipboard.writeText(u):Promise.reject()).then(()=>toast('Link copied')).catch(()=>toast(u)); });
+  const rc=$('#rpCopy'); if(rc) rc.addEventListener('click',()=>{ const u= HTTP ? location.origin+'/recruitment' : location.origin+location.pathname+'#recruitment'; (navigator.clipboard?navigator.clipboard.writeText(u):Promise.reject()).then(()=>toast('Link copied')).catch(()=>toast(u)); });
   document.querySelectorAll('.arow').forEach(el=>{ const go=()=>{ S.af={q:'',area:el.dataset.area,owner:'',status:'',flag:''}; S.tab=Math.max(0,VIEWS.findIndex(v=>v.kind==='actions')); syncHash(); drawView(); }; el.addEventListener('click',go); el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go();}}); });
   document.querySelectorAll('[data-goto="kpi"]').forEach(b=>b.addEventListener('click',()=>{ const i=VIEWS.findIndex((v,j)=>j>0 && S.sheets.find(s=>s.name===v.label && classify(s)==='kpi')); if(i>0){S.tab=i;drawView();} }));
   document.querySelectorAll('[data-f]').forEach(s=>s.addEventListener('change',()=>{ S.af[s.dataset.f]=s.value; drawView(); }));
@@ -916,8 +845,13 @@ function bindView(){
 }
 $('#tabs').addEventListener('click',e=>{ const t=e.target.closest('.tab'); if(!t) return; S.tab=+t.dataset.i; syncHash(); drawView(); window.scrollTo({top:0}); try{ localStorage.setItem(KEY+'-tab2', S.tab); }catch(_){} });
 
-function syncHash(){ const v=VIEWS[S.tab]; try{ history.replaceState(null,'', v&&v.id ? '#'+v.id : location.pathname+location.search); }catch(_){} }
-window.addEventListener('hashchange',()=>{ const hi=VIEWS.findIndex(v=>v.id && '#'+v.id===location.hash); if(hi>=0){ S.tab=hi; drawView(); } });
+function syncHash(){ const v=VIEWS[S.tab]; const id=v&&v.id;
+  try{
+    if (HTTP){ const want = id ? '/'+id : '/'; if (location.pathname!==want || location.hash) history.pushState(null,'', want+location.search); }
+    else history.replaceState(null,'', id ? '#'+id : location.pathname+location.search);
+  }catch(_){} }
+function onRoute(){ const r=routeId(); const hi = r ? VIEWS.findIndex(v=>v.id===r) : 0; if (hi>=0 && hi!==S.tab && (r || VIEWS[S.tab].id)){ S.tab=hi; drawView(); } }
+window.addEventListener('popstate',onRoute); window.addEventListener('hashchange',onRoute);
 window.addEventListener('beforeprint',()=>document.querySelectorAll('#view details').forEach(d=>{ if(!d.open){ d.open=true; d.dataset.po='1'; } }));
 window.addEventListener('afterprint',()=>document.querySelectorAll('#view details[data-po]').forEach(d=>{ d.open=false; delete d.dataset.po; }));
 function toast(msg, err){ const t=$('#toast'); t.textContent=msg; t.className='toast'+(err?' err':''); t.hidden=false; clearTimeout(toast._t); toast._t=setTimeout(()=>t.hidden=true, err?6000:3000); }
@@ -942,79 +876,22 @@ function loadFile(file){
 }
 $('#uploadBtn').addEventListener('click',()=>$('#fileIn').click());
 $('#fileIn').addEventListener('change',e=>{ loadFile(e.target.files[0]); e.target.value=''; });
-$('#resetBtn').addEventListener('click',()=>{ try{ localStorage.removeItem(KEY); }catch(_){} S.sheets=SAMPLE(); S.sample=true; S.file=null; S.tab=0; render(); toast('Showing sample data. Your file was forgotten on this device.'); });
+$('#resetBtn').addEventListener('click',()=>{ try{ localStorage.removeItem(KEY); }catch(_){} loadOriginal(); S.tab=0; render(); toast('Showing the original HR tracker again. Your uploaded file was forgotten on this device.'); });
 let dragN=0;
 window.addEventListener('dragenter',e=>{ if([...(e.dataTransfer?.types||[])].includes('Files')){ dragN++; $('#drop').hidden=false; }});
 window.addEventListener('dragleave',()=>{ dragN=Math.max(0,dragN-1); if(!dragN) $('#drop').hidden=true; });
 window.addEventListener('dragover',e=>e.preventDefault());
 window.addEventListener('drop',e=>{ e.preventDefault(); dragN=0; $('#drop').hidden=true; const f=e.dataTransfer?.files?.[0]; if(f) loadFile(f); });
 
-/* ---------- sample data (fictional, generic roles) ---------- */
-function SAMPLE(){
-  return [
-    {name:'Action Tracker', title:'Action & Milestone Tracker (sample)',
-     headers:['ID','Action / Deliverable','Process Area','Owner (Accountable)','Co-Owner / Partner','Milestone','Target Date','Priority','Status','% Complete','Notes'],
-     rows:[
-      ['A01','Prepare high-level process plan for leadership review','HR Function','HR Head','—','Pre-review',plus(2),'High','In Progress',.6,'Draft ready'],
-      ['A02','Name one accountable owner per process','HR Function','HR Head','—','Pre-review',plus(-3),'High','Done',1,''],
-      ['A03','Recruitment plan ready for review','Recruitment','Recruitment Lead','HR Head','Pre-review',plus(2),'High','Not Started',0,''],
-      ['A04','Delivery Excellence plan ready for review','Delivery Excellence','Delivery Head','HR Head','Pre-review',plus(2),'High','In Progress',.4,''],
-      ['A05','Define interview & feedback SLAs','Recruitment','Recruitment Lead','HR Head','30-day',plus(-2),'High','In Progress',.5,'Waiting on panel list'],
-      ['A06','Sign off HR–Delivery decision & escalation matrix','HR Function','HR Head','Delivery Head','30-day',plus(25),'High','Not Started',0,''],
-      ['A07','Create training needs assessment format','Training','L&D Lead','HR Head','30-day',plus(20),'High','Not Started',0,''],
-      ['A08','Define HR role in AI adoption','AI','AI Lead','HR Head','30-day',plus(6),'High','Blocked',.2,'AI roadmap not shared yet'],
-      ['A09','Performance escalation guide for managers','HR Function','HR Head','Delivery Head','30-day',plus(28),'High','Not Started',0,''],
-      ['A10','30/60/90 workforce forecast','HR Function','HR Head','Finance','60-day',plus(55),'High','Not Started',0,''],
-      ['A11','Annual technical & soft-skills calendar','Training','L&D Lead','HR Head','60-day',plus(50),'Medium','Not Started',0,''],
-      ['A12','AI skill mapping across roles','AI','AI Lead','HR Head','60-day',plus(58),'Medium','Not Started',0,''],
-      ['A13','Launch first grooming cohort','Training','L&D Lead','HR Head','90-day',plus(85),'Medium','Not Started',0,''],
-      ['A14','First HR scorecard to leadership','HR Function','HR Head','All owners','90-day',plus(90),'High','Not Started',0,'']]},
-    {name:'KPI Tracker', title:'KPI & Achievement Tracker (sample)',
-     headers:['KPI','Process Area','Owner','Unit','Frequency','Better if','Baseline','Target','Current'],
-     rows:[
-      ['Time-to-hire','Recruitment','Recruitment Lead','days','Monthly','Lower',48,35,41],
-      ['Offer-to-join ratio','Recruitment','Recruitment Lead','%','Monthly','Higher',.72,.85,.8],
-      ['Interview feedback within SLA','Recruitment','Recruitment Lead','%','Monthly','Higher',.55,.9,.62],
-      ['Training completion','Training','L&D Lead','%','Quarterly','Higher',.7,.9,.92],
-      ['Unnecessary escalations to HR','HR Function','HR Head','count/month','Monthly','Lower',14,5,null],
-      ['Issue resolution within SLA','HR Function','HR Head','%','Monthly','Higher',null,.9,null]]},
-    {name:'Process Ownership', title:'Process ownership (sample)',
-     headers:['#','Process Area','Process Owner','Co-Owner(s)','Objective','HR Role in this Process','Plan Status'],
-     rows:[
-      [1,'Recruitment','Recruitment Lead','HR Head, Practice Heads','Predictable hiring aligned to business demand.','Sourcing, screening, offer, metrics. Delivery owns technical selection.','Not Started'],
-      [2,'Delivery Excellence','Delivery Head','HR Head','Better delivery, including people and capability factors.','People-risk and attrition insights; steps in on repeated issues.','In Progress'],
-      [3,'Training & Grooming','L&D Lead','HR Head, Tech Leads','Build capability and next-level readiness.','Calendar, records, effectiveness, promotion linkage.','Not Started'],
-      [4,'AI','AI Lead','HR Head','Responsible AI adoption across the organisation.','Skill mapping, reskilling, policy and adoption tracking.','Blocked'],
-      [5,'HR Function','HR Head','Delivery Heads, Finance','Clear split between what Delivery owns and what HR owns.','Policy, lifecycle, performance governance, workforce planning.','In Progress']]},
-    {name:'HR Plan', title:'HR plan in the standard framework (sample)',
-     headers:['#','HR Area','Objective','Entry Criteria','Main Process','Exit Criteria','Owner','Co-Owner(s)','Timeline','Status'],
-     rows:[
-      [1,'HR–Delivery Handshake','Define what Delivery owns, what HR owns and when HR steps in.','Any people matter raised by an employee or manager.','Classify → check matrix → resolve at source → escalate on trigger → document → close.','Resolved by the right owner within SLA; decision recorded.','HR Head','Delivery Heads','30 days','In Progress'],
-      [2,'Performance Management','Manager-led performance with HR governance.','Goal cycle starts or a performance gap is seen.','Expectations → feedback → coaching → review → HR if recurring → improvement plan.','Reviews documented; formal cases have prior feedback on record.','HR Head','Delivery Heads','Quarterly','Not Started'],
-      [3,'Workforce Planning','Match capacity and hiring to demand.','Monthly cycle, new project win or critical attrition.','Demand → capacity → gap → hire / train / move → review.','Forecast approved; every gap has an owner.','HR Head','Delivery Heads, Finance','60 days','Not Started']]},
-    {name:'RACI Matrix', title:'Roles & responsibilities (sample)',
-     headers:['Area','Activity','HR Head','Process Owner','Delivery Head','Line Manager','Leadership'],
-     rows:[
-      ['Recruitment','Raise & validate hiring requirement','C','A','R','C','I'],
-      ['Recruitment','Offer & compensation','A','C','C','','C'],
-      ['Training','Training needs assessment','A','R','C','C',''],
-      ['Performance','Formal improvement plan','A','','C','R','I'],
-      ['Lifecycle','Routine leave / WFH approval','I','','I','A',''],
-      ['Governance','Monthly HR–Delivery review','A','R','R','','I']]},
-    {name:'Escalation Matrix', title:'Decision & escalation matrix (sample)',
-     headers:['Issue Type','L1 – Line Manager','L2 – Delivery Head','L3 – HR','L4 – Leadership','HR Mandatory?'],
-     rows:[
-      ['Routine leave / WFH','Approve','—','Policy & records','—','No'],
-      ['Policy exception','Recommend','Endorse','Decide','If precedent-setting','Yes'],
-      ['Repeated performance issue','Document','Endorse','Formal improvement plan','If separation','Yes'],
-      ['Workload concern','Rebalance','Resource support','Support if repeated','—','If repeated']]}
-  ];
-}
+/* ---------- original data: BFL_HR_Plan_and_Tracker_12.xlsx (embedded so the page opens on the real tracker) ---------- */
+const ORIGINAL_FILE='BFL_HR_Plan_and_Tracker_12.xlsx', ORIGINAL_TITLE='BFL – HR Plan & Process Setup', ORIGINAL_ASOF='06 Oct 2026';
+const ORIGINAL=[{"name":"Action Tracker","title":"Action & Milestone Tracker – Process Setup (all owners)","headers":["ID","Action / Deliverable","Process Area","HR Sub-Area","Owner (Accountable)","Co-Owner / HR Partner","Dependency","Milestone","Start Date","Target Date","Priority","Status","% Complete","Flag","Days to Due","Leadership Decision / Notes"],"rows":[["A01","Prepare HR high-level plan in MoM framework (objective, entry, process, exit, ownership)","HR (Entire Function)","Governance & Reporting","Anuja Gautam","—","Inputs from all owners","Pre-8 Oct","2026-09-22","2026-10-08","High","Not Started",0.6,"Due soon",2,"This workbook is the draft"],["A02","Name one accountable owner for Performance, Workforce Planning and Lifecycle (Anuja) with co-owners","HR (Entire Function)","Governance & Reporting","Anuja Gautam","—","—","Pre-8 Oct","2026-09-22","2026-10-08","High","Done",1,"Done",null,"Fixed in this workbook"],["A03","Share 'HR role in your process' summary with each process owner before review","HR (Entire Function)","HR–Delivery Handshake","Anuja Gautam","All process owners","HR Touchpoints sheet","Pre-8 Oct","2026-09-22","2026-10-08","High","Not Started",0,"Due soon",2,null],["A04","Recruitment high-level plan ready for review","Recruitment",null,"Radhika Chandak","Anuja Gautam","Delivery heads","Pre-8 Oct","2026-09-22","2026-10-08","High","Not Started",0,"Due soon",2,null],["A05","Delivery Excellence high-level plan ready for review","Delivery Excellence",null,"Rajan Shinde","Anuja Gautam","Delivery leadership","Pre-8 Oct","2026-09-22","2026-10-08","High","Not Started",0,"Due soon",2,null],["A06","Advanced Training / Grooming high-level plan ready for review","Advanced Training / Grooming",null,"Garima Kour","Anuja Gautam","Practice leads","Pre-8 Oct","2026-09-22","2026-10-08","High","Not Started",0,"Due soon",2,null],["A07","Technical & Soft Skills Training high-level plan ready for review","Technical & Soft Skills Training",null,"Sudeep Dube & Amruta Kumbhakarni","Anuja Gautam","Technical leads, managers","Pre-8 Oct","2026-09-22","2026-10-08","High","Not Started",0,"Due soon",2,null],["A08","AI high-level plan ready for review","AI",null,"Deependra Sinha","Anuja Gautam","AI roadmap","Pre-8 Oct","2026-09-22","2026-10-08","High","Not Started",0,"Due soon",2,null],["A09","Finalize recruitment requirement intake & handshake","Recruitment",null,"Radhika Chandak","Anuja Gautam","Delivery heads","30-day","2026-10-09","2026-11-07","High","Not Started",0,"On track",32,null],["A10","Define recruitment interview / feedback SLAs","Recruitment",null,"Radhika Chandak","Anuja Gautam","Interview panels","30-day","2026-10-09","2026-11-07","High","Not Started",0,"On track",32,null],["A11","Finalize & sign off HR–Delivery decision & escalation matrix","HR (Entire Function)","HR–Delivery Handshake","Anuja Gautam","Delivery heads","Leadership approval","30-day","2026-10-09","2026-11-07","High","Not Started",0,"On track",32,null],["A12","Communicate decision matrix to all managers (session + one-pager)","HR (Entire Function)","HR–Delivery Handshake","Anuja Gautam","Delivery heads","Signed-off matrix","30-day","2026-10-09","2026-11-07","High","Not Started",0,"On track",32,null],["A13","Define HR role & intervention triggers in Delivery Excellence","Delivery Excellence",null,"Rajan Shinde","Anuja Gautam","Delivery leadership","30-day","2026-10-09","2026-11-07","High","Not Started",0,"On track",32,null],["A14","Define HR role in AI capability & adoption","AI",null,"Deependra Sinha","Anuja Gautam","AI roadmap","30-day","2026-10-09","2026-11-07","High","Not Started",0,"On track",32,null],["A15","Create training needs assessment (TNA) format","Technical & Soft Skills Training",null,"Sudeep Dube & Amruta Kumbhakarni","Anuja Gautam / Garima Kour","Managers / Delivery","30-day","2026-10-09","2026-11-07","High","Not Started",0,"On track",32,null],["A16","Define performance escalation framework & manager guide","HR (Entire Function)","Performance Management","Anuja Gautam","Delivery heads","Managers","30-day","2026-10-09","2026-11-07","High","Not Started",0,"On track",32,null],["A17","Map employee lifecycle ownership matrix (joining → exit)","HR (Entire Function)","Employee Lifecycle & HR Ops","Anuja Gautam","Line managers","Policy clarity","30-day","2026-10-09","2026-11-07","High","Not Started",0,"On track",32,null],["A18","Define bypass-approval & non-compliance rule for approved processes","HR (Entire Function)","Governance & Reporting","Anuja Gautam","Leadership","Leadership approval","30-day","2026-10-09","2026-11-07","High","Not Started",0,"On track",32,"Puts 'Non-negotiable' principle into practice"],["A19","Set monthly HR–Delivery governance review (calendar + format)","HR (Entire Function)","Governance & Reporting","Anuja Gautam","All process owners","Owner availability","30-day","2026-10-09","2026-11-07","Medium","Not Started",0,"On track",32,null],["A20","Create 30/60/90 workforce forecast","HR (Entire Function)","Workforce Planning","Anuja Gautam","Delivery heads, Finance","Project pipeline, budget","60-day","2026-11-08","2026-12-07","High","Not Started",0,"On track",62,null],["A21","Build hiring dashboard (time-to-hire, aging, offer-to-join, source)","Recruitment",null,"Radhika Chandak","Anuja Gautam","Hiring tracker data","60-day","2026-11-08","2026-12-07","Medium","Not Started",0,"On track",62,null],["A22","Create annual technical & soft-skills calendar","Technical & Soft Skills Training",null,"Sudeep Dube & Amruta Kumbhakarni","Anuja Gautam","TNA results","60-day","2026-11-08","2026-12-07","Medium","Not Started",0,"On track",62,null],["A23","Create grooming cohort template & nomination criteria","Advanced Training / Grooming",null,"Garima Kour","Anuja Gautam","Role competency framework","60-day","2026-11-08","2026-12-07","Medium","Not Started",0,"On track",62,null],["A24","Publish manager policy FAQ (leave, WFH, comp-off, early release)","HR (Entire Function)","Employee Lifecycle & HR Ops","Anuja Gautam","Line managers","Current policies","60-day","2026-11-08","2026-12-07","Medium","Not Started",0,"On track",62,null],["A25","AI skill mapping across roles","AI",null,"Deependra Sinha","Anuja Gautam","Role mapping","60-day","2026-11-08","2026-12-07","Medium","Not Started",0,"On track",62,null],["A26","Define promotion & compensation governance (no informal commitments)","HR (Entire Function)","Promotion & Compensation","Anuja Gautam","Leadership, Finance","Market data","60-day","2026-11-08","2026-12-07","Medium","Not Started",0,"On track",62,null],["A27","Launch first advanced grooming cohort","Advanced Training / Grooming",null,"Garima Kour","Anuja Gautam","Mentors, assessment criteria","90-day","2026-12-08","2027-01-06","Medium","Not Started",0,"On track",92,null],["A28","Workforce planning dashboard live & first monthly review held","HR (Entire Function)","Workforce Planning","Anuja Gautam","Delivery heads, Finance","Utilisation data","90-day","2026-12-08","2027-01-06","High","Not Started",0,"On track",92,null],["A29","Engagement & retention plan (pulse survey, stay interviews, exit analysis)","HR (Entire Function)","Engagement & Retention","Anuja Gautam","Line managers","Survey tool","90-day","2026-12-08","2027-01-06","Medium","Not Started",0,"On track",92,"New – not in original file"],["A30","First quarterly training effectiveness review","Technical & Soft Skills Training",null,"Sudeep Dube & Amruta Kumbhakarni","Anuja Gautam","Assessment data","90-day","2026-12-08","2027-01-06","Medium","Not Started",0,"On track",92,null],["A31","90-day AI capability plan reviewed (learning paths, reskilling, hiring)","AI",null,"Deependra Sinha","Anuja Gautam","Training content, tool access","90-day","2026-12-08","2027-01-06","Medium","Not Started",0,"On track",92,null],["A32","Capture HR KPI baselines & send first HR scorecard to leadership","HR (Entire Function)","Governance & Reporting","Anuja Gautam","All process owners","KPI data sources","90-day","2026-12-08","2027-01-06","High","Not Started",0,"On track",92,null]]},{"name":"Process Ownership","title":"Process Ownership – as agreed in Leadership MoM (21 Sep 2026)","headers":["#","Process Area (MoM)","Process Owner (Accountable)","Co-Owner(s) / Stakeholders","Objective","HR's Role in this Process","8 Oct Deliverable","Plan Status","Flag"],"rows":[[1,"Recruitment Process","Radhika Chandak","Anuja (HR governance), Delivery / Practice Heads","Predictable recruitment engine aligned to business demand.","Sourcing, screening, coordination, offer, compensation, metrics; Delivery owns technical selection.","Recruitment high-level plan + handshake & SLA proposal","Not Started","RED – not started"],[2,"Delivery Excellence","Rajan Shinde","Anuja (people insights), Delivery Leadership","Improve delivery effectiveness, including people/capability factors.","Workforce, capability, attrition, performance and people-risk insights; steps in on repeated people issues.","Delivery Excellence plan + HR intervention triggers","Not Started","RED – not started"],[3,"Advanced Training / Grooming for Next Level","Garima Kour","Anuja (training governance), Practice Leads, Mentors","Prepare employees for next-level roles.","Nomination criteria, records, effectiveness and career/promotion linkage.","Grooming plan + cohort approach","Not Started","RED – not started"],[4,"Regular Technical & Soft Skills Training","Sudeep Dube & Amruta Kumbhakarni","Anuja (calendar & effectiveness), Technical Leads, Managers","Build technical and behavioural capability aligned to business needs.","TNA, calendar, attendance, records, feedback and effectiveness; behavioural competency framework.","Training plan + TNA + calendar approach","Not Started","RED – not started"],[5,"AI","Deependra Sinha","Anuja (people & adoption), Delivery, Technical Teams","AI capability and responsible adoption across the organisation.","AI skill mapping, hiring/reskilling, learning framework, adoption tracking and policy governance.","AI plan + HR involvement model","Not Started","RED – not started"],[6,"HR – entire function (Handshake with Delivery)","Anuja Gautam","Delivery / Functional Heads, Line Managers, Leadership, Finance","Clear split of what Delivery owns, what HR owns and where joint action is required – across the whole HR lifecycle.","Owns HR policy, lifecycle, performance governance, workforce planning, employee relations, compensation governance and HR reporting.","HR plan (see 'HR Plan (Anuja)' sheet) + decision & escalation matrix","In Progress","AMBER – finish before review"]]},{"name":"HR Plan (Anuja)","title":"HR High-Level Plan – Owner: Anuja Gautam (entire HR function, built on the handshake with Delivery)","headers":["#","HR Area","Objective","Current Gap","Entry Criteria (trigger / what starts it)","Main Process (steps)","Exit Criteria (what 'done' looks like)","Owner","Co-Owner(s)","Stakeholders","Resources Required","Dependencies","Timeline","Expected Outcome / KPI","Principle Check","Status","Flag"],"rows":[[1,"HR–Delivery Handshake & Decision Matrix","Define what Delivery owns, what HR owns, and where joint action is required.","Routine people matters escalate to HR; policies interpreted inconsistently.","Any people matter raised by an employee or manager (leave, WFH, workload, conflict, early release, retention, exit).","1. Classify issue type → 2. Check decision matrix for owner → 3. Resolve at source (manager / Delivery) → 4. Escalate to HR only if a trigger is met → 5. Document → 6. Close & review monthly.","Issue resolved by the right owner within SLA; decision recorded; no repeat escalation for the same issue.","Anuja Gautam","All Delivery / Functional Heads","Line managers, employees, Leadership","Decision matrix doc, one-page manager guide, 1 manager briefing session, issue log (sheet/HRMS)","Manager participation, policy clarity, agreed decision rights","Sign-off by 7 Nov 2026 (30-day)","Fewer unnecessary escalations to HR; faster resolution; clear ownership.","Agreeable: co-signed by Delivery heads. Non-negotiable: matrix is the rulebook. Unaffordable: monthly review of escalations.","Not Started","Not started"],[2,"Performance Management","Consistent manager-led performance management with HR governance.","Concerns reach HR late or without prior feedback/documentation.","Goal-setting cycle starts, OR a manager sees a performance gap, OR a repeated/serious concern arises.","1. Set expectations → 2. Regular feedback & coaching (manager) → 3. Document → 4. Review → 5. If recurring/serious, HR steps in → 6. Formal improvement plan if needed → 7. Closure (improved / next action).","Cycle reviews completed and documented; every formal case has prior manager feedback on record and a closed outcome.","Anuja Gautam","Delivery Heads","Line managers, employees","Performance framework, manager escalation guide, documentation template, manager training","Role expectations, manager documentation, performance data","Framework by 7 Nov 2026; then quarterly / case-based","Earlier intervention; documented feedback in 100% of formal cases; improvement outcomes.","Non-negotiable: no formal action without documented prior feedback.","Not Started","Not started"],[3,"Workforce Planning","Align people capacity and hiring with business demand.","Hiring is reactive because future demand is not shared early.","Monthly cycle start, OR new project/client win, OR attrition in a critical role.","1. Delivery shares 30/60/90-day demand → 2. HR maps capacity, bench, attrition → 3. Identify gap → 4. Decide Hire / Train / Move → 5. Feed Recruitment & L&D → 6. Monthly review.","Monthly forecast approved by Delivery + Finance; every gap has an owner and action (hire/train/move).","Anuja Gautam","Delivery Heads, Finance","Leadership, Recruitment (Radhika), L&D owners","Workforce dashboard, utilisation data, budget, market salary data","Business forecast, budget, utilisation/capacity data","First forecast by 7 Dec 2026; dashboard live by 6 Jan 2027; monthly after","Forecast accuracy, hiring readiness, capacity coverage of critical roles.","Unaffordable: no new requisition without the forecast.","Not Started","Not started"],[4,"Employee Lifecycle & HR Operations","Clear ownership for routine lifecycle matters from joining to exit.","Managers unclear on policies, approvals and escalation points.","Lifecycle event: offer accepted, joining, confirmation due, leave/WFH request, role change, resignation.","Joining → Induction → Confirmation → Leave/WFH/Comp-off → Role/project changes → Resignation → Exit interview → Full & final settlement. Manager handles routine approvals; HR owns policy, records and exceptions.","Event closed within TAT, records complete and compliant, no unresolved exceptions.","Anuja Gautam","Line Managers","Employees, Finance (payroll), IT/Admin","Lifecycle ownership matrix, policy FAQ, HRMS / records, checklists per event","Manager inputs, timely approvals, employee documentation","Matrix by 7 Nov 2026; FAQ by 7 Dec 2026; ongoing","TAT met, documentation accuracy, fewer escalations.","Agreeable: matrix shared with managers before rollout.","Not Started","Not started"],[5,"Employee Relations & Policy","Handle formal/sensitive matters consistently and fairly.","Routine conflicts escalate; serious matters may be handled informally.","Grievance, misconduct allegation, serious conflict, or policy exception request.","1. Manager first-level handling (routine) → 2. HR takes over formal matters → 3. Investigate / hear both sides → 4. Decide with Leadership if required → 5. Document → 6. Close & communicate.","Case closed with documented outcome; policy applied consistently; parties informed.","Anuja Gautam","Leadership (for serious cases)","Line managers, Delivery heads","Grievance policy, case log, investigation template","Policy clarity, leadership availability for decisions","Ongoing; reviewed monthly","Case closure time, repeat cases, policy consistency.","Non-negotiable: formal matters always go through HR.","Not Started","Not started"],[6,"Promotion & Compensation Governance","Fair, consistent promotion and pay decisions with no informal commitments.","Risk of informal promises and inconsistent decisions.","Appraisal cycle, promotion recommendation from manager, offer/compensation exception.","1. Manager / Delivery recommends → 2. HR checks framework, market data and consistency → 3. Joint review → 4. Leadership/Finance approval → 5. Communicate → 6. Record.","Approved decision recorded and communicated; any exception has written approval.","Anuja Gautam","Leadership, Finance","Delivery heads, managers","Promotion criteria, salary bands, market benchmark data","Budget, performance data, competency framework (links to Grooming)","Governance defined by 7 Dec 2026","Exceptions tracked; zero informal commitments; internal movement rate.","Non-negotiable: no commitment without the approval chain.","Not Started","Not started"],[7,"Learning & Development Governance (HR role across training processes)","One HR governance layer across Technical, Soft Skills, Grooming and AI learning.","Training is activity-based; needs analysis and effectiveness not consistently tracked.","TNA cycle (quarterly), new project skill need, promotion/readiness need, AI skill gap.","1. TNA with owners → 2. Calendar → 3. Nominations → 4. Delivery by owners/trainers → 5. Attendance & feedback → 6. Assessment → 7. Effectiveness review → 8. Career linkage.","Calendar delivered, records complete, effectiveness reviewed each quarter.","Anuja Gautam (governance)","Garima, Sudeep, Amruta, Deependra (content owners)","Managers, employees","TNA format, training tracker, LMS/tracker, trainer availability","Training owners' plans, manager nominations","TNA by 7 Nov 2026; calendar by 7 Dec 2026; quarterly reviews","Completion, assessment scores, application on job, skill-gap closure.","Unaffordable: training linked to promotion readiness. See 'Learning Plan' sheet.","Not Started","Not started"],[8,"Engagement & Retention (proposed – new)","Spot attrition risk early and act before resignations.","Retention is mentioned in the agenda but has no process yet.","Pulse survey cycle, exit interview, high-performer flagged at risk, attrition above threshold.","1. Quarterly pulse survey → 2. Stay interviews for key talent → 3. Exit interview analysis → 4. Action plan with managers → 5. Monthly review.","Actions agreed for each risk area; attrition trend reviewed monthly.","Anuja Gautam","Delivery Heads","Line managers, Leadership","Survey tool, exit interview template, attrition data","Manager participation, leadership sponsorship","Plan by 6 Jan 2027 (90-day)","Voluntary attrition, regretted attrition, engagement score.","Proposed addition – confirm in review.","Not Started","Not started"],[9,"HR Governance & Reporting","Make process adherence visible and reviewed.","No common review rhythm or metrics across processes.","Month end, OR any process flagged RED, OR bypass request.","1. Owners update tracker → 2. HR consolidates scorecard → 3. Monthly HR–Delivery review → 4. Decisions & escalations → 5. Process updates → 6. Quarterly report to leadership.","Monthly review held, scorecard published, decisions logged, RED items have an owner and date.","Anuja Gautam","All process owners","Leadership","This tracker, monthly meeting slot, KPI data sources","Owners updating on time","Cadence set by 7 Nov 2026; first scorecard by 6 Jan 2027","Review held every month; % actions on time; KPIs reported.","Unaffordable: dashboard flags non-adherence automatically.","Not Started","Not started"]]},{"name":"HR Touchpoints","title":"HR's Role in Other Owners' Processes (the handshake)","headers":["Process","Process Owner","Process Owner / Delivery Owns","HR Owns","HR Supports","Joint (Handshake)","Mandatory HR Intervention","NOT HR's First-Line Role","HR Deliverable to this Owner"],"rows":[["Recruitment","Radhika Chandak","Demand validation, JD, technical assessment, selection","Sourcing, screening, coordination, offer, compensation, metrics","Market/skill feasibility","Requirement sign-off; interview & feedback SLA; hiring outcome","Critical hiring, compensation, policy exceptions, candidate risk","Technical selection","Offer & comp governance; hiring metrics; workforce forecast input"],["Delivery Excellence","Rajan Shinde","Delivery standards, quality, productivity, client outcomes","People/capability insights, engagement, performance governance","Data & people interventions","Delivery flags people gap → HR supports intervention","Repeated performance, employee relations, workload risk","Project execution","Monthly people-risk & attrition insights; intervention triggers"],["Advanced Training / Grooming","Garima Kour","Talent identification, mentors, readiness expectations","Nomination criteria, records, effectiveness, career linkage","Coordination","Selection + development plan + readiness review","Where training links to promotion or career movement","Technical/business coaching","Nomination & readiness criteria linked to promotion framework"],["Technical Training","Sudeep Dube & Amruta Kumbhakarni","Technical gaps, curriculum, trainers, assessments","Governance, calendar, records, effectiveness","Coordination","Skill gap → HR governance → delivery → effectiveness review","Organisation-wide or mandatory programs","Technical curriculum ownership","TNA format, training tracker, quarterly effectiveness report"],["Soft Skills Training","Sudeep Dube & Amruta Kumbhakarni","Business examples, nominations, manager reinforcement","Behavioural framework, needs analysis, calendar, effectiveness","Coordination","Manager need → HR learning intervention → on-job application","Culture, conduct, leadership programs","Day-to-day manager feedback","Behavioural competency framework; annual calendar"],["AI","Deependra Sinha","AI strategy, use cases, technical capability","Skill mapping, reskilling, AI hiring, policy & adoption","Recruitment & training","Need → skill map → build/buy → train/hire → adopt → measure","Workforce impact, AI hiring, employee AI policy","Technical AI solution design","AI skill map, reskilling paths, employee AI-use policy"]]},{"name":"RACI Matrix","title":"Roles & Responsibilities – RACI Matrix","headers":["Area","Activity","Anuja (HR Head)","HR Team","Process Owner (non-HR)","Delivery / Practice Heads","Line Managers","Leadership","Finance","Employee","A-count check"],"rows":[["Recruitment","Raise & validate hiring requirement / JD","C",null,"A","R","C","I","C",null,"OK"],["Recruitment","Sourcing, screening & coordination","A","R","C","I",null,null,null,null,"OK"],["Recruitment","Technical assessment & selection","I",null,"A","R","C",null,null,null,"OK"],["Recruitment","Offer & compensation","A","R","C","C",null,"C","C","I","OK"],["Delivery Excellence","Delivery standards & quality","I",null,"A","R","R","I",null,null,"OK"],["Delivery Excellence","People-risk / attrition insights","A","R","C","C","I","I",null,null,"OK"],["Training","Training needs assessment (TNA)","A","R","R","C","C",null,null,"C","OK"],["Training","Training content & delivery","I",null,"A","R","C",null,null,"I","OK"],["Training","Calendar, records & effectiveness","A","R","C","I","C","I",null,null,"OK"],["Grooming","Nomination & readiness review","C","R","A","C","R","I",null,"I","OK"],["AI","AI strategy & use cases","C",null,"A","R",null,"C",null,null,"OK"],["AI","AI skill mapping, reskilling & policy","A","R","C","C","C","I",null,"I","OK"],["Performance","Set expectations, feedback, coaching","I",null,null,"A","R",null,null,"C","OK"],["Performance","Formal improvement plan / serious case","A","R",null,"C","R","I",null,"I","OK"],["Performance","Performance framework & documentation","A","R",null,"C","C","I",null,null,"OK"],["Workforce Planning","30/60/90-day demand forecast","C",null,null,"A","R","I","C",null,"OK"],["Workforce Planning","Capacity, gap & hire/train/move decision","A","R","C","R",null,"C","C",null,"OK"],["Lifecycle","Routine leave / WFH / comp-off approval","I",null,null,"I","A",null,null,"R","OK"],["Lifecycle","Policy exception","A","R",null,"C","C","C",null,"I","OK"],["Lifecycle","Joining, confirmation, exit & records","A","R",null,"I","C",null,"C","I","OK"],["Employee Relations","Routine team conflict","I",null,null,"C","A",null,null,"R","OK"],["Employee Relations","Grievance / misconduct / serious conflict","A","R",null,"C","C","C",null,"I","OK"],["Promotion & Comp","Promotion / pay recommendation","C",null,null,"R","R","A","C","I","OK"],["Promotion & Comp","Framework, consistency & exceptions","A","R",null,"C",null,"C","C",null,"OK"],["Governance","Monthly HR–Delivery review & scorecard","A","R","R","R",null,"I",null,null,"OK"],["Governance","Approve process bypass / exception","A",null,"R","C",null,"C",null,null,"OK"]]},{"name":"Escalation Matrix","title":"HR–Delivery Decision & Escalation Matrix (proposed)","headers":["Issue Type","L1 – Line Manager","L2 – Delivery / Practice Head","L3 – HR (Anuja)","L4 – Leadership","HR Mandatory?","Escalate to HR when…","Proposed SLA (days)","Documentation"],"rows":[["Routine leave / WFH / comp-off","Approve","—","Policy & records","—","No","Request is outside policy",2,"HRMS entry"],["Leave / WFH policy exception","Recommend","Endorse","Decide","If precedent-setting","Yes","Always",3,"Approval email + record"],["Workload / burnout concern","Address & rebalance","Resource support","Support & monitor","—","If repeated","Same concern raised twice or affects health/attendance",5,"Issue log"],["Early release from project","Raise","Decide","Inform / bench plan","—","No","Retention risk or policy impact",3,"Release note"],["Routine team conflict","Resolve","Support","Advise if asked","—","No","Not resolved in 2 conversations",5,"Manager note"],["Grievance / harassment / misconduct","Report immediately","Inform","Own & investigate","Decide on serious outcome","Yes","Always – immediately",10,"Case file"],["Routine performance gap","Feedback & coach","Review","Guidance","—","No","No improvement after documented coaching",30,"Feedback record"],["Repeated / serious performance issue","Document","Endorse","Formal improvement plan","If separation","Yes","Always",5,"PIP documentation"],["Resignation / retention risk","Inform & stay conversation","Retention decision","Counter-offer governance, exit","Key talent","Yes","Any resignation",2,"Resignation record"],["Compensation / promotion query","Listen – no commitment","Recommend","Framework check","Approve","Yes","Any pay/promotion commitment",10,"Approval trail"],["Policy interpretation","Check FAQ","—","Clarify","—","If unclear","FAQ does not answer it",2,"FAQ update"],["Critical hiring / new role","Raise need","Validate demand","Plan, budget, hire","Approve new role","Yes","Always",5,"Requisition"],["Training nomination","Nominate","Approve","Record & track","—","If linked to promotion","Linked to promotion/career move",5,"Training tracker"],["Employee AI-tool / policy concern","Raise","Technical view","Policy decision","If high risk","Yes","Data, privacy or conduct concern",5,"Policy log"]]},{"name":"Learning Plan","title":"Learning & Development Plan – Oct 2026 to Sep 2027","headers":["Program","Content Owner","HR Role","Audience","Format","Cadence","Q3 FY (Oct–Dec 2026)","Q4 FY (Jan–Mar 2027)","Q1 (Apr–Jun 2027)","Q2 (Jul–Sep 2027)","Effectiveness Measure","Target","Status","Flag"],"rows":[["Technical Training","Sudeep Dube & Amruta Kumbhakarni","TNA, calendar, records, effectiveness","All delivery staff","Workshops, labs, certification","Quarterly","TNA + calendar","Deliver Q-plan + assess","Deliver + assess","Annual review","Assessment pass rate; skill-gap closure","80% pass","Not Started","Not started"],["Soft Skills Training","Sudeep Dube & Amruta Kumbhakarni","Behavioural framework, needs analysis, calendar","All staff; client-facing first","Workshops + manager reinforcement","Quarterly","Framework + calendar","Communication & client skills","Collaboration & ownership","Leadership basics","Feedback score; manager-observed application","4/5 feedback","Not Started","Not started"],["Advanced Training / Grooming for Next Level","Garima Kour","Nomination criteria, readiness review, promotion linkage","High-potential employees","Cohort + mentor + projects","Per cohort","Cohort template & criteria","Cohort 1 launch","Cohort 1 assessment","Readiness review → career action","Readiness score; internal movement","50% ready","Not Started","Not started"],["AI Learning Paths","Deependra Sinha","Skill mapping, reskilling, adoption tracking, policy","All staff (basic); tech roles (advanced)","Self-paced + hands-on","Ongoing","AI skill map","Basic AI literacy for all","Role-based advanced paths","Adoption review","Completion; use-case participation","90% basic","Not Started","Not started"],["Manager Capability (performance & people)","Anuja Gautam","Owner","All line managers","Workshop + guide","Half-yearly","Decision matrix briefing","Feedback & documentation workshop","—","Refresher","Documented feedback in formal cases","100%","Not Started","Not started"],["Induction & Policy Awareness","Anuja Gautam","Owner","New joiners; all staff (policy)","Induction + e-learning","Monthly / on joining","Refresh induction deck","Policy FAQ rollout","Ongoing","Ongoing","Induction completion in week 1","100%","Not Started","Not started"]]},{"name":"KPI Tracker","title":"KPI & Achievement Tracker","headers":["KPI","Process Area","Owner","Definition","Unit","Frequency","Better if","Baseline","Target (proposed)","Current","Flag","Comments"],"rows":[["Time-to-hire","Recruitment","Radhika Chandak","Days from approved requisition to offer accepted","days","Monthly","Lower",null,35,null,"No data",null],["Offer-to-join ratio","Recruitment","Radhika Chandak","Joined ÷ offers accepted","%","Monthly","Higher",null,0.85,null,"No data",null],["Interview feedback within SLA","Recruitment","Radhika Chandak","Feedback received within SLA ÷ total interviews","%","Monthly","Higher",null,0.9,null,"No data",null],["Recurring people escalations from Delivery","Delivery Excellence","Rajan Shinde","Repeat people issues escalated per month","count","Monthly","Lower",null,3,null,"No data",null],["Training completion","Technical & Soft Skills Training","Sudeep Dube & Amruta Kumbhakarni","Completed ÷ nominated","%","Quarterly","Higher",null,0.9,null,"No data",null],["Assessment pass rate","Technical & Soft Skills Training","Sudeep Dube & Amruta Kumbhakarni","Passed ÷ assessed","%","Quarterly","Higher",null,0.8,null,"No data",null],["Grooming readiness","Advanced Training / Grooming","Garima Kour","Cohort members rated 'ready' ÷ cohort size","%","Per cohort","Higher",null,0.5,null,"No data",null],["AI basic literacy completion","AI","Deependra Sinha","Staff completing basic AI path ÷ total staff","%","Quarterly","Higher",null,0.9,null,"No data",null],["Unnecessary escalations to HR","HR (Entire Function)","Anuja Gautam","Escalations that the matrix says should be resolved by manager","count/month","Monthly","Lower",null,5,null,"No data",null],["Issue resolution within SLA","HR (Entire Function)","Anuja Gautam","Issues closed within matrix SLA ÷ total","%","Monthly","Higher",null,0.9,null,"No data",null],["Formal cases with prior documented feedback","HR (Entire Function)","Anuja Gautam","Formal performance cases with feedback on record ÷ total","%","Quarterly","Higher",null,1,null,"No data",null],["Workforce forecast accuracy","HR (Entire Function)","Anuja Gautam","1 − |actual − forecast| ÷ forecast headcount","%","Monthly","Higher",null,0.85,null,"No data",null],["Lifecycle TAT met","HR (Entire Function)","Anuja Gautam","Lifecycle events closed within TAT ÷ total","%","Monthly","Higher",null,0.95,null,"No data",null],["Voluntary attrition (annualised)","HR (Entire Function)","Anuja Gautam","Voluntary exits ÷ average headcount, annualised","%","Monthly","Lower",null,0.15,null,"No data",null],["Actions completed on time","HR (Entire Function)","Anuja Gautam","Done by target date ÷ actions due (from Action Tracker)","%","Monthly","Higher",null,0.9,null,"No data",null]]},{"name":"8 Oct Review","title":"Leadership Review – 8 October 2026: Agenda, Decisions & Readiness","headers":["#","Discussion Point","What to Present","Decision Required","Owner","HR Input","Ready?","Outcome / Next Step"],"rows":[[1,"Process objective & framework","Why clear process ownership; the 5-part framework and 3 principles","Agree objective & framework","All owners","HR governance principle","Yes",null],[2,"Ownership model","Owner / co-owner / HR role / Delivery role (Process Ownership + RACI)","Agree decision rights; one 'A' per activity","All owners","RACI Matrix","Yes",null],[3,"Recruitment plan & handshake","Requirement, interview, feedback, offer, joining ownership + SLAs","Approve handshake & SLAs","Radhika Chandak","Offer/comp governance","Owner to confirm",null],[4,"Delivery Excellence plan","Delivery ownership + HR intervention triggers","Agree escalation points","Rajan Shinde","People-risk insights","Owner to confirm",null],[5,"Training & grooming plans","Technical, soft skills, advanced grooming, effectiveness (Learning Plan)","Agree HR role & governance","Garima / Sudeep / Amruta","TNA & L&D governance","Owner to confirm",null],[6,"AI plan","Technical AI ownership vs HR people/adoption role","Agree HR involvement","Deependra Sinha","AI skill map & policy","Owner to confirm",null],[7,"HR plan & decision matrix","HR Plan (Anuja) + Escalation Matrix (leave, WFH, performance, workload, early release, retention)","Approve HR plan & decision matrix","Anuja Gautam","Core HR ownership","Yes",null],[8,"Timelines & dependencies","30/60/90 milestones and cross-functional dependencies (Action Tracker)","Confirm target dates","All owners","Consolidated tracker","Yes",null],[9,"KPIs & targets","Proposed KPIs and targets (KPI Tracker)","Confirm targets & baselines","All owners","HR scorecard","Yes",null],[10,"Governance & enforcement","Monthly review, scorecard, bypass approval rule","Approve cadence & bypass rule","Anuja Gautam","HR reporting","Yes",null]]}];
+function loadOriginal(){ S.sheets=JSON.parse(JSON.stringify(ORIGINAL)); S.file=ORIGINAL_FILE; S.sample=true; S.loadedAt=null; }
 
 /* ---------- boot ---------- */
 let restored=false;
 try{ const s=JSON.parse(localStorage.getItem(KEY)||'null'); if(s && Array.isArray(s.sheets) && s.sheets.length){ S.sheets=s.sheets; S.file=s.file; S.loadedAt=s.loadedAt; S.sample=false; restored=true; } }catch(_){}
-if (!restored) S.sheets=SAMPLE();
+if (!restored) loadOriginal();
 try{ const t=+localStorage.getItem(KEY+'-tab2'); if(t>0) S.tab=t; }catch(_){}
 render();
 })();
