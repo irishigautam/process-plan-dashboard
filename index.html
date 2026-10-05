@@ -58,6 +58,7 @@ button,select,input{font:inherit;color:inherit}
 .btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .btn.primary:hover{filter:brightness(1.08)}
 .btn svg{width:16px;height:16px}
+a.btn{text-decoration:none;color:inherit}
 
 /* tabs */
 .tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);display:flex;gap:2px;overflow-x:auto;padding-block:10px;margin-bottom:18px;border-bottom:1px solid var(--line);scrollbar-width:thin}
@@ -281,6 +282,9 @@ dd{margin:0 0 4px;overflow-wrap:anywhere}
         <span id="uploadLabel">Upload tracker</span>
       </button>
       <button class="btn" id="resetBtn" type="button" hidden>Show original</button>
+      <a class="btn" id="recLink" href="/recruitment" hidden>Recruitment plan
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </a>
     </div>
   </header>
   <nav class="tabs" id="tabs" role="tablist" aria-label="Workbook views"></nav>
@@ -486,6 +490,7 @@ function buildViews(){
 let VIEWS=[];
 function render(){
   if (REC_MODE) return renderRecPage();
+  { const rl=$('#recLink'); rl.hidden=false; if (!HTTP){ rl.href=location.pathname+'#recruitment'; rl.onclick=e=>{ e.preventDefault(); location.hash='recruitment'; location.reload(); }; } }
   VIEWS = buildViews();
   if (S.tab>=VIEWS.length) S.tab=0;
   const first=S.sheets.find(s=>s.title);
