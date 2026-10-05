@@ -183,6 +183,79 @@ dd{margin:0 0 4px;overflow-wrap:anywhere}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:60;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;font-weight:600;max-width:calc(100% - 32px)}
 .toast.err{background:var(--bad);color:#fff}
 .note{font-size:12px;color:var(--muted);margin-top:24px;display:flex;gap:8px;align-items:flex-start}
+/* recruitment plan */
+.rp-hero{display:flex;flex-wrap:wrap;justify-content:space-between;gap:16px;align-items:flex-end;margin-bottom:16px}
+.rp-hero p{max-width:70ch;margin:6px 0 0;color:var(--muted)}
+.rp-tools{display:flex;gap:8px;flex-wrap:wrap}
+.rp-nav{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px}
+.rp-nav button{padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);cursor:pointer;font-weight:600;font-size:13px}
+.rp-nav button:hover{border-color:var(--accent);color:var(--accent)}
+.rp-sec{margin-top:30px;scroll-margin-top:72px}
+.rp-sec > .panel-h{margin-bottom:12px}
+.rp-sec > .panel-h h2{font-size:20px}
+.lede{max-width:75ch;color:var(--muted);margin:2px 0 12px}
+.find{display:grid;gap:0;counter-reset:f}
+.find li{list-style:none;display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px;padding:10px 0;border-top:1px solid var(--line);counter-increment:f}
+.find li:first-child{border-top:0}
+.find li::before{content:counter(f);display:grid;place-items:center;width:24px;height:24px;border-radius:6px;background:var(--bad-bg);color:var(--bad);font:500 12px var(--f-mono)}
+.find b{display:block}
+.find span{color:var(--muted);font-size:13px}
+.phase-h{display:flex;align-items:baseline;gap:10px;margin:20px 0 8px;flex-wrap:wrap}
+.phase-h .num{font-family:var(--f-mono);font-size:12px;color:var(--accent);font-weight:500}
+.stg{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);margin-bottom:8px}
+.stg > summary{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px 14px;cursor:pointer;color:var(--ink);font-weight:400;font-size:14px}
+.stg > summary::before{display:none}
+.stg[open] > summary{border-bottom:1px solid var(--line)}
+.stg-no{font-family:var(--f-mono);font-size:13px;display:grid;place-items:center;width:38px;height:38px;border-radius:8px;background:var(--surface-2);font-weight:500}
+.stg-t{font-weight:700;font-family:var(--f-display);font-size:15px}
+.stg-m{font-size:12px;color:var(--muted)}
+.stg-f{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.stg-b{padding:14px 14px 16px 70px;display:grid;gap:14px}
+@media (max-width:640px){.stg>summary{grid-template-columns:38px minmax(0,1fr)}.stg-f{grid-column:2;justify-content:flex-start}.stg-b{padding-left:14px}}
+.quote{border-left:3px solid var(--info);background:var(--info-bg);padding:10px 12px;border-radius:0 8px 8px 0;font-size:13.5px}
+.quote .eyebrow{color:var(--info)}
+.quote ul{margin:4px 0 0;padding-left:18px}
+.au{display:grid;gap:8px}
+.au-i{display:grid;grid-template-columns:104px minmax(0,1fr);gap:10px;align-items:start;font-size:13.5px}
+@media (max-width:520px){.au-i{grid-template-columns:minmax(0,1fr)}}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
+.seg button{border:0;background:none;padding:7px 12px;cursor:pointer;font-weight:600;font-size:13px;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.gantt{display:grid;gap:5px}
+.g-row{display:grid;grid-template-columns:minmax(120px,230px) minmax(0,1fr) 128px;gap:12px;align-items:center;font-size:12.5px}
+.g-lab{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.g-lab .mono{color:var(--muted);margin-right:6px}
+.g-track{position:relative;height:20px;background:var(--bg);border-radius:4px}
+.g-best,.g-worst{position:absolute;height:7px;border-radius:3px;min-width:4px}
+.g-best{top:2px;background:var(--accent)}
+.g-worst{bottom:2px;background:var(--warn);opacity:.55}
+.g-tgt{position:absolute;top:-3px;bottom:-3px;border-left:2px dashed var(--bad)}
+.g-axis{display:grid;grid-template-columns:minmax(120px,230px) minmax(0,1fr) 128px;gap:12px;font-size:11px;color:var(--muted)}
+.g-axis .ticks{position:relative;height:16px}
+.g-axis .ticks span{position:absolute;transform:translateX(-50%);font-family:var(--f-mono)}
+@media (max-width:640px){.g-row,.g-axis{grid-template-columns:minmax(0,1fr) 84px}.g-row>.mono{white-space:normal!important;font-size:11px}.g-lab{grid-column:1/-1}.g-axis>span:first-child{display:none}}
+.tobe{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:12px}
+.tb{border:1px solid var(--line);border-radius:var(--r);background:var(--surface);padding:14px;display:grid;gap:10px;align-content:start}
+.tb-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.tb-h .k{font-family:var(--f-mono);font-size:12px;color:var(--accent);font-weight:500}
+.tb ol{margin:0;padding:0;list-style:none;display:grid;gap:9px;counter-reset:s}
+.tb li{display:grid;gap:2px;padding-left:30px;position:relative;counter-increment:s;font-size:13.5px}
+.tb li::before{content:counter(s);position:absolute;left:0;top:1px;width:21px;height:21px;border-radius:6px;background:var(--accent-soft);color:var(--accent);font:500 11px/21px var(--f-mono);text-align:center}
+.tb li small{color:var(--muted);font-size:12px}
+.tag-new{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ok);background:var(--ok-bg);border-radius:4px;padding:1px 5px;margin-left:6px;vertical-align:1px}
+.gate{border-top:1px dashed var(--line);padding-top:10px;font-size:12.5px;display:flex;gap:8px;align-items:flex-start}
+.gate b{color:var(--ok);white-space:nowrap}
+.theme .act{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:13.5px}
+.theme .act .eyebrow{display:block;color:var(--accent);margin-bottom:2px}
+.roll{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr));gap:12px}
+.roll .tb li::before{content:"";width:14px;height:14px;top:3px;border-radius:4px;background:none;border:1.5px solid var(--accent)}
+.roll .tb li{padding-left:24px}
+@media print{
+  .actions-bar,.tabs,.rp-nav,.rp-tools,.note,.seg{display:none!important}
+  body{background:#fff} .wrap{max-width:none;padding:0}
+  .panel,.stg,.card,.tb,.kpi{break-inside:avoid}
+  .rp-sec{margin-top:18px}
+}
 @media (prefers-reduced-motion:no-preference){.view{animation:fade .18s ease-out}@keyframes fade{from{opacity:.4}to{opacity:1}}}
 @media (max-width:480px){.wrap{padding-inline:16px}}
 </style>
@@ -385,13 +458,14 @@ function dueText(a){
 }
 
 /* ---------- state ---------- */
-const S = { sheets:[], file:null, loadedAt:null, sample:true, tab:0, af:{q:'',area:'',owner:'',status:'',flag:''}, expand:false };
+const S = { sheets:[], file:null, loadedAt:null, sample:true, tab:0, af:{q:'',area:'',owner:'',status:'',flag:''}, expand:false, rf:'all', rx:false };
 
 function buildViews(){
   const views=[]; const act=S.sheets.find(s=>classify(s)==='actions'); const kpi=S.sheets.find(s=>classify(s)==='kpi');
   const A = act ? actionModel(act) : []; const K = kpi ? kpiModel(kpi) : [];
   views.push({label:'Overview', render:()=>renderOverview(A,K,act)});
-  if (act) views.push({label:act.name, n:A.length, render:()=>renderActions(A)});
+  views.push({label:'Recruitment Plan', id:'recruitment', n:RP_STAGES.length, render:renderRecruit});
+  if (act) views.push({label:act.name, kind:'actions', n:A.length, render:()=>renderActions(A)});
   if (kpi) views.push({label:kpi.name, n:K.length, render:()=>renderKPIs(K)});
   S.sheets.forEach(sh=>{
     if (sh===act || sh===kpi) return;
@@ -403,6 +477,7 @@ function buildViews(){
 let VIEWS=[];
 function render(){
   VIEWS = buildViews();
+  if (location.hash){ const hi=VIEWS.findIndex(v=>v.id && '#'+v.id===location.hash); if(hi>=0) S.tab=hi; }
   if (S.tab>=VIEWS.length) S.tab=0;
   const first=S.sheets.find(s=>s.title);
   $('#planTitle').textContent = S.sample ? 'Sample process plan' : (S.file ? S.file.replace(/\.[^.]+$/,'').replace(/[_]+/g,' ') : (first?.title || 'Process plan'));
@@ -581,17 +656,270 @@ function renderTable(sh){
     <tbody>${sh.rows.map(r=>`<tr>${sh.headers.map((h,i)=>`<td class="${cls(i)}">${fmtCell(r[i],h)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
 }
 
+/* ---------- recruitment plan (audited process + CTO comments) ---------- */
+const RP_PHASES = [
+  {id:'p1', name:'Requisition & alignment'},
+  {id:'p2', name:'Sourcing'},
+  {id:'p3', name:'Screening'},
+  {id:'p4', name:'Technical evaluation'},
+  {id:'p5', name:'HR fit & offer'},
+  {id:'p6', name:'Preboarding & joining'}];
+const RP_STAGES = [
+ {no:'1',ph:'p1',name:'Requirement Initiation',det:'Receive requirement/JD from Delivery Team with required skills, experience, location, notice period, etc.',own:'HR',sup:'Delivery',tat:'Same day',mn:0,mx:0,
+  cto:['Receipt of correct JD','Change in technical requirements','JD – primary and secondary skills, must have, good to have','Opportunity: project / bench','Expected salary range (budget)','Automation in Keka – edit and approve','Requisition form with panel and number of rounds'],
+  au:[['gap','No approval step is defined, yet stage 3 posts an “approved” JD. It does not say who approves or where.'],['risk','A change in technical requirements mid-hire resets the funnel, and there is no change-control rule.'],['fix','Turn the CTO list into one mandatory Keka requisition form: must-have / good-to-have skills, project vs bench, budget band, panel names and number of rounds. HR sends back incomplete forms.']]},
+ {no:'2',ph:'p1',name:'Requirement Understanding',det:'Delivery explains the exact technical requirement. For new requirements or changes in an existing requirement, HR schedules a discussion call with Delivery.',own:'HR + Delivery',sup:'—',tat:'1 day',mn:1,mx:1,cto:[],
+  au:[['risk','Ownership is shared (HR + Delivery), so no single person is accountable for a clear brief.'],['fix','Hold a 15-minute kickoff for every requisition, not only new or changed ones. Output: 2–3 sample profiles, 3 knock-out screening questions and the channel plan.']]},
+ {no:'3',ph:'p2',name:'Job Posting',det:'Post approved JD on the company website, which is integrated with KEKA.',own:'HR',sup:'—',tat:'Same/Next day',mn:0,mx:1,cto:[],
+  au:[['gap','Only one channel (career page). Referrals, job portals, LinkedIn and consultants are not mentioned.'],['fix','Pick a channel mix at kickoff by role criticality: career page + referrals by default, portals/LinkedIn for niche skills, consultants only for hard-to-fill roles.']]},
+ {no:'4',ph:'p2',name:'Application Collection',det:'Applications start coming through the company career page after the job is posted.',own:'HR',sup:'—',tat:'1–2 days onward',mn:1,mx:2,cto:[],
+  au:[['risk','The TAT is open-ended (“onward”). There is no pipeline target and no trigger when applications are thin.'],['fix','Set a pipeline target per role (for example 15–20 relevant CVs in 5 working days). If it is missed, add channels or revisit the JD/budget with Delivery.']]},
+ {no:'5',ph:'p3',name:'CV Screening',det:'Screen candidates based on experience, relevant skills, location, budget, notice period and other role-specific criteria.',own:'HR',sup:'—',tat:'1–2 days',mn:1,mx:2,
+  cto:['Salaries from previous appraisals','Salary trajectory across timelines','Discussion rather than an interview'],
+  au:[['risk','Screening criteria are not written down, so results vary by recruiter.'],['fix','Use a one-page screening scorecard built from the requisition must-haves, plus a salary-trajectory check (CTC at each job move and appraisal) as the CTO asked.']]},
+ {no:'6',ph:'p3',name:'HR Screening Call',det:'Conduct a short HR introduction call to understand candidate background, experience, communication, current CTC, expected CTC, notice period, location and interest.',own:'HR',sup:'—',tat:'Same/Next day',mn:0,mx:1,cto:[],
+  au:[['ok','Clear owner and a tight TAT.'],['fix','Run it as a conversation (CTO) with a standard script. Ask for salary slips and the latest appraisal letter on this call, so document collection at stage 13 does not add a wait later.']]},
+ {no:'7',ph:'p4',name:'Technical Interview – L1',det:'Coordinate availability of candidate and panel and schedule the first technical interview.',own:'HR',sup:'Technical Panel',tat:'1–2 days',mn:1,mx:2,
+  cto:['Panel availability','First round panel has to be large','Panel rotation','Train the panel','Scan the resume','Need to change mentality from rejecting to selecting','Reach 2–3 mins before the meeting','Need to check the resume thoroughly through questions','Try to stick to 30 mins wherever possible','Make the interviewee talk'],
+  au:[['gap','Panel availability is the main bottleneck, but HR owns this TAT without any control over panel time.'],['fix','Delivery commits weekly pre-blocked interview slots. Build an L1 pool of 8–10 trained panelists on rotation.'],['fix','Publish a one-page interviewer standard: read the CV beforehand, join 2–3 minutes early, keep to 30 minutes, let the candidate do most of the talking, test the CV with questions, and look for reasons to select.']]},
+ {no:'8',ph:'p4',name:'L1 Feedback',det:'Panel evaluates the candidate and submits interview feedback.',own:'Technical Panel',sup:'HR',tat:'Within 24 hrs',mn:1,mx:1,
+  cto:['Objective feedback','Short sentences, not too ambiguous','Bullet points','Lead time TBD'],
+  au:[['risk','Conflict: the TAT says “within 24 hrs” but the CTO note says the lead time is TBD.'],['fix','Fix the SLA at 24 hours. Use a structured Keka form: a rating per must-have skill, bullet-point evidence, and Hire / No hire. Auto-reminder at 12 h, escalate to the Delivery head at 24 h.']]},
+ {no:'9',ph:'p4',name:'Technical Interview – L2',det:'If L1 is positive, schedule the second technical interview.',own:'HR',sup:'Technical Panel',tat:'1–2 days',mn:1,mx:2,cto:[],
+  au:[['gap','Only the positive path is defined. Nothing says what happens to candidates rejected or put on hold after L1.'],['fix','Take the number of rounds from the requisition. Junior or bench roles can close after one technical round.']]},
+ {no:'10',ph:'p4',name:'L2 Feedback',det:'Panel submits L2 evaluation and recommendation.',own:'Technical Panel',sup:'HR',tat:'Within 24 hrs',mn:1,mx:1,cto:['Decisive panel for L2'],
+  au:[['fix','L2 gives a clear Hire / No hire, never “maybe”. L2 panelists are senior and fixed per practice.']]},
+ {no:'11',ph:'p4',name:'Candidate Selection',det:'If the candidate clears both L1 and L2, HR confirms technical selection and moves the candidate to HR discussion.',own:'HR',sup:'Delivery / Panel',tat:'Same day',mn:0,mx:0,cto:[],
+  au:[['ok','A clear gate between technical and HR evaluation.']]},
+ {no:'12',ph:'p5',name:'HR Discussion',det:'Schedule discussion with Anuja to understand the candidate’s overall fit, expectations and other relevant details.',own:'HR',sup:'Anuja',tat:'1–2 days',mn:1,mx:2,
+  cto:['HR IEF','Discussion transcripts through an app','Can recommend with respect to salary range','Engagement with the candidate offered but not onboarded','Making the person feel welcomed, part of the organization, navigating the hybrid model','Orientation plan','Buddy system'],
+  au:[['risk','Every hire passes through one person. If Anuja is on leave or travelling, all offers stall.'],['fix','Name a backup. Record the outcome in the HR IEF with a salary recommendation inside the approved band.'],['risk','Recording or transcribing discussions needs the candidate’s consent up front.'],['fix','Several CTO notes here (engagement, welcome, hybrid, orientation, buddy) belong after the offer. They move to the Engage and Join phases in the recommended flow.']]},
+ {no:'12a',ph:'p5',name:'Candidate Feedback',det:'Feedback is given to candidate via KEKA.',own:'HR',sup:'Anuja / Pratiksha',tat:'Within 24 hrs',mn:1,mx:1,parallel:true,cto:[],
+  au:[['gap','This step has no number and appears only once. Candidates rejected at screening, L1 or L2 get no defined closure.'],['fix','Send a Keka status update within 24 h of every decision at every stage, including rejections.']]},
+ {no:'13',ph:'p5',name:'Document Collection – Pre-offer',det:'Collect salary slips, current/other offer letter, latest increment/appraisal letter and other required documents.',own:'HR',sup:'Candidate',tat:'1–2 days',mn:1,mx:2,cto:[],
+  au:[['fix','Request these on the HR screening call (stage 6). They should already be in hand by now, which saves 1–2 days.']]},
+ {no:'14',ph:'p5',name:'Compensation Discussion',det:'Discuss candidate profile and compensation with CTO & CFO and finalize the approved budget/offer.',own:'HR',sup:'CTO + CFO',tat:'1–2 days',mn:1,mx:2,cto:[],
+  au:[['risk','The budget is already set at requisition, yet every offer still needs CTO + CFO. That puts two senior approvals on the critical path of every hire.'],['fix','Offers within the approved band are approved by HR + Anuja. Only exceptions above band go to CTO + CFO, with a 24 h SLA.']]},
+ {no:'15',ph:'p5',name:'Offer Discussion',det:'HR discusses approved compensation and other offer details with the candidate.',own:'HR',sup:'Candidate',tat:'Same day',mn:0,mx:0,cto:[],
+  au:[['ok','A same-day TAT keeps momentum.']]},
+ {no:'16',ph:'p5',name:'Selection Communication',det:'Send formal selection email to the candidate and request required joining documents.',own:'HR',sup:'Candidate',tat:'Same day',mn:0,mx:0,cto:[],
+  au:[['gap','A selection email is not an offer letter. There is no formal offer letter, acceptance deadline or background-verification step.'],['fix','Issue the offer letter from Keka with an acceptance date (3–5 days). Start background verification on acceptance.']]},
+ {no:'17',ph:'p6',name:'Preboarding',det:'Initiate candidate preboarding through KEKA and ensure required documents/forms are completed.',own:'HR',sup:'Candidate',tat:'Before DOJ',mn:null,mx:null,cto:[],
+  au:[['gap','The 30–90 day notice period between offer and joining carries the highest dropout risk, and nothing is planned for it (the CTO raised this at stage 12).'],['fix','Engagement cadence: a call every 2 weeks, a buddy assigned before DOJ, a welcome note from the reporting manager, and a check 1 week before DOJ.']]},
+ {no:'18',ph:'p6',name:'Joining Preparation',det:'Confirm DOJ, reporting details, documents, IT requirements and other onboarding arrangements.',own:'HR',sup:'IT / Delivery / Admin',tat:'Before DOJ',mn:null,mx:null,cto:[],
+  au:[['risk','“Before DOJ” has no lead time. Laptop, accounts and access often need a week.'],['fix','Raise the IT / Admin request when the offer is accepted, and run a readiness checklist 5 working days before DOJ.']]},
+ {no:'19',ph:'p6',name:'Day 1',det:'Collect hard copies of required documents with self-attested copies on the date of joining.',own:'HR',sup:'New Joiner',tat:'Day 1',mn:null,mx:null,cto:[],
+  au:[['risk','Day 1 is paperwork only, and it repeats what preboarding already collected.'],['fix','Day 1 = verify originals + orientation + buddy introduction + hybrid-working guide (CTO: orientation plan, buddy system).']]},
+ {no:'20',ph:'p6',name:'Recruitment Closure',det:'Update candidate status, joining details and recruitment tracker; close the requirement after successful joining.',own:'HR',sup:'Delivery',tat:'Day 1/2',mn:null,mx:null,cto:[],
+  au:[['gap','The process ends at joining. There is no 30/60/90-day check, no quality-of-hire feedback and no hiring metrics.'],['fix','Close the requisition on joining, then run a 30/60/90-day check-in with the manager and a monthly recruitment metrics review.']]}
+];
+const RP_FINDINGS = [
+  ['Panel time is the real bottleneck, and the wrong team owns it.','HR is held to the L1/L2 TAT but controls none of the panel’s calendar. Ten of the CTO’s 32 comments are about the panel.'],
+  ['Every offer waits for CTO + CFO, even though the budget is set on day 1.','Two senior approvals on the critical path of every hire. Offers within band should not need them.'],
+  ['Only the “yes” path is written down.','No rejection closure, no on-hold rule, no formal offer letter or acceptance deadline, no background verification.'],
+  ['The process stops at the selection email.','The 30–90 day notice period, when most offer dropouts happen, is unmanaged. The CTO’s engagement, buddy and orientation notes have no home stage.'],
+  ['One sourcing channel and no pipeline target.','Career page only, and the TAT reads “1–2 days onward”, so a thin pipeline is not flagged.'],
+  ['Feedback has no fixed SLA or format.','The TAT says 24 h, the CTO says “TBD”, and there is no structured form or Hire / No-hire rule.']];
+const RP_THEMES = [
+  {t:'Requisition quality',q:['Receipt of correct JD','Change in technical requirements','JD – primary and secondary skills, must have, good to have','Opportunity: project / bench','Expected salary range (budget)','Automation in Keka – edit and approve','Requisition form with panel and number of rounds'],
+   a:'One mandatory Keka requisition form with an approval workflow. Changes after posting go back through the kickoff and are logged.',o:'HR (form), Delivery (content)',s:'1–2'},
+  {t:'Screening approach',q:['Salaries from previous appraisals','Salary trajectory across timelines','Discussion rather than an interview'],
+   a:'A screening scorecard plus a conversational call script that maps CTC at every job move and appraisal.',o:'HR',s:'5–6'},
+  {t:'Panel capacity',q:['Panel availability','First round panel has to be large','Panel rotation','Train the panel'],
+   a:'An L1 pool of 8–10 panelists on a rotation roster with weekly pre-blocked slots. Interviewer training at induction and quarterly calibration.',o:'Delivery heads, CTO',s:'7, 9'},
+  {t:'Interview conduct',q:['Scan the resume','Need to change mentality from rejecting to selecting','Reach 2–3 mins before the meeting','Need to check the resume thoroughly through questions','Try to stick to 30 mins wherever possible','Make the interviewee talk'],
+   a:'A one-page interviewer standard covered in panel training: prepare, be early, keep to 30 minutes, the candidate talks, test the CV, look for reasons to select.',o:'CTO, HR',s:'7, 9'},
+  {t:'Feedback quality & decisiveness',q:['Objective feedback','Short sentences, not too ambiguous','Bullet points','Lead time TBD','Decisive panel for L2'],
+   a:'A structured Keka feedback form (rating per skill + bullet evidence + Hire / No hire). 24 h SLA with a 12 h reminder and a 24 h escalation.',o:'Panel, HR enforces',s:'8, 10'},
+  {t:'HR evaluation & tools',q:['HR IEF','Discussion transcripts through an app','Can recommend with respect to salary range'],
+   a:'An HR IEF form for every HR discussion, a transcription tool used only with the candidate’s consent, and a salary recommendation inside the approved band.',o:'Anuja',s:'12'},
+  {t:'Candidate experience after the offer',q:['Engagement with the candidate offered but not onboarded','Making the person feel welcomed, part of the organization, navigating the hybrid model','Orientation plan','Buddy system'],
+   a:'A notice-period engagement cadence, a buddy assigned before DOJ, a Day-1 orientation plan and a hybrid-working guide.',o:'HR, Delivery',s:'17–19 (new)'}];
+const RP_TOBE = [
+  {k:'A',name:'Plan',day:'Day 0–1',steps:[['Raise requisition in Keka','Delivery · mandatory fields incl. panel, rounds, budget band',true],['Approve requisition','Delivery head + HR · budget band locked',true],['Kickoff call (15 min)','HR + hiring manager · sample profiles, knock-outs, channels, panel slots']],gate:'Approved requisition with panel and rounds named'},
+  {k:'B',name:'Source',day:'Day 1–5',steps:[['Post to career page + chosen channels','HR · Keka-integrated'],['Referral push','HR · internal announcement',true],['Day-5 pipeline check','HR · 15–20 relevant CVs, or escalate',true]],gate:'Enough qualified CVs to shortlist'},
+  {k:'C',name:'Screen',day:'Day 2–6',steps:[['CV screen with scorecard','HR · within 1 day of receipt'],['HR screening conversation','HR · salary trajectory, notice, interest'],['Collect pre-offer documents early','HR · slips, appraisal letter, other offers']],gate:'Screen pass, documents requested'},
+  {k:'D',name:'Evaluate',day:'Day 4–10',steps:[['L1 interview (30 min)','Panel · from pre-blocked rotation slots'],['L1 feedback in Keka ≤ 24 h','Panel · structured form'],['L2 interview, decisive','Senior panel · Hire / No hire'],['L2 feedback ≤ 24 h','Panel'],['Status update to every candidate ≤ 24 h','HR · incl. rejections',true]],gate:'Technical selection confirmed'},
+  {k:'E',name:'Offer',day:'Day 9–12',steps:[['HR fit discussion + HR IEF','Anuja (backup named)'],['Compensation approval','Within band: HR + Anuja same day · Exception: CTO + CFO ≤ 24 h'],['Offer letter from Keka','HR · acceptance in 3–5 days',true],['Background verification','HR · starts on acceptance',true]],gate:'Signed offer'},
+  {k:'F',name:'Engage',day:'Notice period',steps:[['Engagement call every 2 weeks','HR',true],['Assign buddy, manager welcome note','Delivery',true],['Preboarding in Keka','HR · candidate'],['IT / Admin request on acceptance','HR → IT / Admin'],['Readiness check 5 days before DOJ','HR · IT · Delivery',true]],gate:'Ready for Day 1'},
+  {k:'G',name:'Join & close',day:'DOJ → +90 days',steps:[['Day 1: originals, orientation, buddy, hybrid guide','HR · Delivery'],['Close requisition & update tracker','HR'],['30 / 60 / 90-day check-ins','Manager + HR',true],['Monthly metrics review & retro','HR · Delivery · CTO',true]],gate:'New joiner settled, requisition closed'}];
+const RP_KPIS = [
+  ['Time to offer','Approved requisition → offer letter','≤ 12 working days','Lower'],
+  ['Time to fill','Approved requisition → joining','Track; set after baseline','Lower'],
+  ['Feedback within 24 h','L1 + L2 feedback submitted on time','≥ 90%','Higher'],
+  ['Candidate closure within 24 h','Every decision communicated in Keka','≥ 95%','Higher'],
+  ['L1 → L2 pass rate','Signals screening / JD quality','30–50% band','In band'],
+  ['Interviews per offer','L1 interviews held per offer made','≤ 4','Lower'],
+  ['Offer acceptance','Offers accepted / offers made','≥ 85%','Higher'],
+  ['Offer-to-join','Joined / accepted','≥ 85%','Higher'],
+  ['Requisitions changed after posting','Change in technical requirements','< 10%','Lower'],
+  ['90-day retention','New joiners still with us at 90 days','≥ 95%','Higher'],
+  ['Source mix','Referral / career page / portal / consultant','Referrals ≥ 30%','Higher']];
+const RP_RACI_H = ['HR','Delivery / Hiring mgr','Technical panel','Anuja','CTO','CFO','IT / Admin'];
+const RP_RACI = [
+  ['Raise & approve requisition',['R','A','','I','C','C','']],
+  ['Kickoff & channel plan',['A','R','I','','','','']],
+  ['Sourcing & CV screening',['A/R','C','','','','','']],
+  ['HR screening conversation',['A/R','','','I','','','']],
+  ['Panel pool, rotation & slots',['C','A','R','','I','','']],
+  ['L1 / L2 interviews & feedback',['R','A','R','','I','','']],
+  ['Technical selection decision',['I','A','R','','','','']],
+  ['Candidate status updates',['A/R','I','','C','','','']],
+  ['HR fit discussion (HR IEF)',['R','I','','A','','','']],
+  ['Compensation within band',['R','I','','A','I','I','']],
+  ['Compensation exception',['R','C','','C','A','A','']],
+  ['Offer letter & BGV',['A/R','I','','I','','','']],
+  ['Notice-period engagement & buddy',['A','R','','C','','','']],
+  ['Preboarding & IT readiness',['A','C','','','','','R']],
+  ['Day 1 orientation',['A','R','','','','','R']],
+  ['30/60/90 check-ins & metrics',['A','R','','I','I','','']],
+  ['Panel training & calibration',['R','R','C','','A','','']]];
+const RP_ROLL = [
+  {k:'Weeks 1–2',name:'Quick wins',items:[['Keka requisition form live with mandatory fields + approval','HR, Delivery'],['24 h feedback SLA + structured Keka feedback form with reminders','HR, CTO'],['Status update to candidates at every stage','HR'],['Agree within-band approval delegation','CTO, CFO'],['Name a backup for HR discussions','Anuja']]},
+  {k:'Weeks 3–4',name:'Panel & screening',items:[['L1 panel pool (8–10), rotation roster, weekly pre-blocked slots','Delivery heads'],['Publish interviewer standard + first panel training','CTO, HR'],['Screening scorecard + call script with salary trajectory','HR'],['Channel mix + referral policy','HR']]},
+  {k:'Days 30–60',name:'Offer & engagement',items:[['Offer letter with acceptance date + BGV in Keka','HR'],['Notice-period engagement cadence + buddy programme','HR, Delivery'],['Orientation plan + hybrid-working guide','HR'],['IT / Admin request triggered on acceptance','HR, IT'],['Pilot a transcription tool (with consent)','Anuja']]},
+  {k:'Days 60–90',name:'Measure & improve',items:[['Monthly recruitment KPI review','HR, CTO'],['30/60/90-day joiner check-ins','Managers, HR'],['Quarterly panel calibration','CTO'],['First hiring retro; refine TATs from actual data','HR, Delivery']]}];
+
+function renderRecruit(){
+  const all = RP_STAGES;
+  const auN = t => all.reduce((s,x)=>s+x.au.filter(a=>a[0]===t).length,0);
+  const ctoN = all.reduce((s,x)=>s+x.cto.length,0);
+  const path = all.filter(x=>x.mn!=null && !x.parallel);
+  const bestT = path.reduce((s,x)=>s+x.mn,0), worstT = path.reduce((s,x)=>s+x.mx,0);
+  const TARGET = 12;
+  const tone = {gap:['Gap','bad'],risk:['Risk','warn'],fix:['Recommend','info'],ok:['Works well','ok']};
+
+  const tiles = `<section class="tiles" aria-label="Recruitment summary">
+    <div class="tile"><span class="eyebrow">Stages audited</span><span class="v">${all.length}</span></div>
+    <div class="tile"><span class="eyebrow">CTO comments</span><span class="v">${ctoN}</span></div>
+    <div class="tile bad"><span class="eyebrow">Gaps</span><span class="v">${auN('gap')}</span></div>
+    <div class="tile warn"><span class="eyebrow">Risks</span><span class="v">${auN('risk')}</span></div>
+    <div class="tile"><span class="eyebrow">Req → offer today</span><span class="v">${bestT}–${worstT}<span class="muted" style="font-size:13px"> days</span></span></div>
+    <div class="tile ok"><span class="eyebrow">Proposed target</span><span class="v">≤ ${TARGET}<span class="muted" style="font-size:13px"> days</span></span></div>
+  </section>`;
+
+  const findings = `<div class="grid g2">
+    <section class="panel"><div class="panel-h"><h2>What the audit found</h2><span class="muted">${RP_FINDINGS.length} key findings</span></div>
+      <ol class="find" style="margin:0;padding:0">${RP_FINDINGS.map(f=>`<li><div><b>${esc(f[0])}</b><span>${esc(f[1])}</span></div></li>`).join('')}</ol></section>
+    <section class="panel"><div class="panel-h"><h2>What changes</h2></div>
+      <div class="att">${[
+        ['Delivery owns panel slots','Pre-blocked weekly slots from a rotating, trained L1 pool.'],
+        ['Approve within band','CTO + CFO only for exceptions, with a 24 h SLA.'],
+        ['Close every loop','24 h status update at every decision, plus offer letter, acceptance date and BGV.'],
+        ['Manage the notice period','Engagement every 2 weeks, buddy before DOJ, readiness check 5 days before joining.'],
+        ['Measure it','11 KPIs reviewed monthly, starting with time to offer and feedback SLA.']
+      ].map(x=>`<div class="att-i"><span class="pill ok">New</span><div><div class="t">${esc(x[0])}</div><div class="m">${esc(x[1])}</div></div><span></span></div>`).join('')}</div></section>
+  </div>`;
+
+  // stage audit
+  const f = S.rf || 'all';
+  const keep = x => f==='all' || (f==='cto' && x.cto.length) || (f==='gap' && x.au.some(a=>a[0]==='gap'||a[0]==='risk'));
+  const stageHtml = RP_PHASES.map((p,pi)=>{
+    const L = all.filter(x=>x.ph===p.id && keep(x)); if (!L.length) return '';
+    const P = all.filter(x=>x.ph===p.id && x.mn!=null && !x.parallel);
+    const a1=P.reduce((s,x)=>s+x.mn,0), a2=P.reduce((s,x)=>s+x.mx,0);
+    const rng = P.length ? (a1===a2 ? `${a1} day${a1===1?'':'s'}` : `${a1}–${a2} days`) : 'before / on DOJ';
+    return `<div class="phase-h"><span class="num">PHASE ${pi+1}</span><h3>${esc(p.name)}</h3><span class="muted mono" style="font-size:12px">${rng}</span></div>
+    ${L.map(x=>{
+      const g=x.au.filter(a=>a[0]==='gap').length, r=x.au.filter(a=>a[0]==='risk').length;
+      return `<details class="stg" ${S.rx?'open':''}><summary>
+        <span class="stg-no">${esc(x.no)}</span>
+        <div style="min-width:0"><div class="stg-t">${esc(x.name)}${x.parallel?' <span class="pill plain" style="vertical-align:2px">parallel</span>':''}</div>
+          <div class="stg-m">Owner: <b>${esc(x.own)}</b>${x.sup&&x.sup!=='—'?` · with ${esc(x.sup)}`:''} · TAT: <span class="mono">${esc(x.tat)}</span></div></div>
+        <div class="stg-f">${x.cto.length?`<span class="pill info">${x.cto.length} CTO</span>`:''}${g?`<span class="pill bad">${g} gap${g>1?'s':''}</span>`:''}${r?`<span class="pill warn">${r} risk${r>1?'s':''}</span>`:''}${!g&&!r?'<span class="pill ok">Sound</span>':''}</div>
+      </summary>
+      <div class="stg-b">
+        <div><span class="eyebrow">Current step</span><div>${esc(x.det)}</div></div>
+        ${x.cto.length?`<div class="quote"><span class="eyebrow">CTO comments</span><ul>${x.cto.map(c=>`<li>${esc(c)}</li>`).join('')}</ul></div>`:''}
+        <div><span class="eyebrow">Audit</span><div class="au" style="margin-top:6px">${x.au.map(a=>`<div class="au-i"><span>${pill(tone[a[0]][0],tone[a[0]][1])}</span><span>${esc(a[1])}</span></div>`).join('')}</div></div>
+      </div></details>`;}).join('')}`;
+  }).join('');
+
+  // gantt
+  let cMin=0, cMax=0;
+  const scale = worstT;
+  const pct = v => (v/scale*100).toFixed(2)+'%';
+  const gRows = path.map(x=>{
+    const r = `<div class="g-row"><div class="g-lab" title="${esc(x.name)}"><span class="mono">${esc(x.no)}</span>${esc(x.name)}</div>
+      <div class="g-track"><span class="g-tgt" style="left:${pct(TARGET)}"></span>
+        <span class="g-best" style="left:${pct(cMin)};width:${x.mn?pct(x.mn):'4px'}"></span>
+        <span class="g-worst" style="left:${pct(cMax)};width:${x.mx?pct(x.mx):'4px'}"></span></div>
+      <div class="mono muted" style="text-align:right;white-space:nowrap">${esc(x.tat)}</div></div>`;
+    cMin+=x.mn; cMax+=x.mx; return r;
+  }).join('');
+  const ticks = [0,5,10,15,scale].filter((v,i,a)=>a.indexOf(v)===i && v<=scale).map(v=>`<span style="left:${pct(v)}">${v}</span>`).join('');
+
+  const tobe = RP_TOBE.map(p=>`<article class="tb"><div class="tb-h"><h3><span class="k">${p.k}</span> ${esc(p.name)}</h3><span class="mono muted" style="font-size:12px">${esc(p.day)}</span></div>
+    <ol>${p.steps.map(s=>`<li><span>${esc(s[0])}${s[2]?'<span class="tag-new">New</span>':''}</span><small>${esc(s[1])}</small></li>`).join('')}</ol>
+    <div class="gate"><b>Gate →</b><span>${esc(p.gate)}</span></div></article>`).join('');
+
+  const themes = RP_THEMES.map(t=>`<article class="card theme"><div class="card-h"><h3>${esc(t.t)}</h3><span class="pill info">${t.q.length} comments</span></div>
+    <div class="quote"><ul style="margin:0">${t.q.map(c=>`<li>${esc(c)}</li>`).join('')}</ul></div>
+    <div class="act"><span class="eyebrow">Action</span>${esc(t.a)}</div>
+    <div class="people"><span class="person">${esc(t.o)}</span><span class="person co">Stage ${esc(t.s)}</span></div></article>`).join('');
+
+  const kpis = `<div class="tbl-wrap"><table><thead><tr><th>KPI</th><th>Definition</th><th>Proposed target</th><th>Better if</th></tr></thead><tbody>
+    ${RP_KPIS.map(k=>`<tr><td><strong>${esc(k[0])}</strong></td><td class="mid">${esc(k[1])}</td><td class="num">${esc(k[2])}</td><td>${esc(k[3])}</td></tr>`).join('')}</tbody></table></div>`;
+
+  const lt = v => { const s=String(v||'').trim(); if(!s) return '<span class="muted">·</span>'; return s.split('/').map(x=>`<span class="lt ${x}">${x}</span>`).join(' '); };
+  const raci = `<div class="tbl-wrap raci"><table><thead><tr><th>Activity</th>${RP_RACI_H.map(h=>`<th style="text-align:center;white-space:normal;min-width:84px">${esc(h)}</th>`).join('')}</tr></thead>
+    <tbody>${RP_RACI.map(r=>`<tr><td class="mid"><strong>${esc(r[0])}</strong></td>${r[1].map(v=>`<td class="rc">${lt(v)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+
+  const roll = RP_ROLL.map(p=>`<article class="tb"><div class="tb-h"><h3>${esc(p.name)}</h3><span class="mono muted" style="font-size:12px">${esc(p.k)}</span></div>
+    <ol>${p.items.map(i=>`<li><span>${esc(i[0])}</span><small>${esc(i[1])}</small></li>`).join('')}</ol></article>`).join('');
+
+  const nav = [['rp-summary','Summary'],['rp-stages','Stage audit'],['rp-tat','Turnaround'],['rp-themes','CTO themes'],['rp-tobe','Recommended flow'],['rp-kpi','KPIs'],['rp-raci','RACI'],['rp-roll','Rollout']];
+  return `<div class="rp-hero"><div><span class="eyebrow">Recruitment · audit & plan</span><h2 style="font-size:24px;margin-top:4px">Recruitment plan</h2>
+      <p>The current 20-step recruitment process, audited stage by stage against the CTO’s comments, with the recommended flow, KPIs, roles and a 90-day rollout.</p></div>
+    <div class="rp-tools"><button class="btn" type="button" id="rpCopy">Copy link</button><button class="btn" type="button" id="rpPrint">Print / PDF</button></div></div>
+  <nav class="rp-nav" aria-label="Recruitment plan sections">${nav.map(n=>`<button type="button" data-jump="${n[0]}">${n[1]}</button>`).join('')}</nav>
+
+  <section class="rp-sec" id="rp-summary" style="margin-top:12px">${tiles}${findings}</section>
+
+  <section class="rp-sec" id="rp-stages"><div class="panel-h"><div><h2>Stage-by-stage audit</h2><p class="lede">Each stage as written today, the CTO’s comments on it, and the audit verdict. Open a stage to see the detail.</p></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><div class="seg" role="group" aria-label="Filter stages">${[['all','All'],['cto','With CTO comments'],['gap','Gaps & risks']].map(b=>`<button type="button" data-rf="${b[0]}" aria-pressed="${f===b[0]}">${b[1]}</button>`).join('')}</div>
+    <button class="btn" type="button" id="rpExpand">${S.rx?'Collapse all':'Expand all'}</button></div></div>
+    ${stageHtml || '<div class="empty">No stages match this filter.</div>'}</section>
+
+  <section class="rp-sec" id="rp-tat"><div class="panel-h"><div><h2>Turnaround: requisition to offer</h2><p class="lede">Stated TATs added up along the main path, assuming no waiting between steps. Best case ${bestT} working days, worst case ${worstT}. This excludes the candidate’s notice period and the parallel candidate-feedback step. The dashed line is the proposed ${TARGET}-day target.</p></div>
+    <div class="legend"><span><i style="background:var(--accent)"></i>Best case</span><span><i style="background:var(--warn);opacity:.55"></i>Worst case</span><span><i style="border-left:2px dashed var(--bad);border-radius:0;width:0"></i>Target</span></div></div>
+    <div class="panel"><div class="gantt">${gRows}<div class="g-axis"><span></span><div class="ticks">${ticks}</div><span class="muted" style="text-align:right">working days</span></div></div></div></section>
+
+  <section class="rp-sec" id="rp-themes"><div class="panel-h"><div><h2>CTO comments, grouped into themes</h2><p class="lede">All ${ctoN} comments sorted into ${RP_THEMES.length} themes, each with one action and an owner.</p></div></div>
+    <div class="cards">${themes}</div></section>
+
+  <section class="rp-sec" id="rp-tobe"><div class="panel-h"><div><h2>Recommended recruitment flow</h2><p class="lede">Seven phases, each ending in a clear gate. Steps marked <span class="tag-new" style="margin:0">New</span> fill gaps found in the audit.</p></div></div>
+    <div class="tobe">${tobe}</div></section>
+
+  <section class="rp-sec" id="rp-kpi"><div class="panel-h"><div><h2>Recruitment KPIs</h2><p class="lede">Proposed targets. Confirm them after the first month of baseline data.</p></div></div>${kpis}</section>
+
+  <section class="rp-sec" id="rp-raci"><div class="panel-h"><div><h2>Roles &amp; responsibilities</h2><p class="lede">One accountable owner per activity. The only joint approval is a compensation exception (CTO + CFO).</p></div>
+    <div class="legend"><span><span class="lt A">A</span> Accountable</span><span><span class="lt R">R</span> Responsible</span><span><span class="lt C">C</span> Consulted</span><span><span class="lt I">I</span> Informed</span></div></div>${raci}</section>
+
+  <section class="rp-sec" id="rp-roll"><div class="panel-h"><div><h2>90-day rollout</h2><p class="lede">Quick wins first. Most of them are Keka configuration and agreed rules, not new tools.</p></div></div>
+    <div class="roll">${roll}</div></section>`;
+}
+
 /* ---------- events ---------- */
 function bindView(){
-  document.querySelectorAll('.arow').forEach(el=>{ const go=()=>{ S.af={q:'',area:el.dataset.area,owner:'',status:'',flag:''}; S.tab=1; drawView(); }; el.addEventListener('click',go); el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go();}}); });
+  document.querySelectorAll('[data-jump]').forEach(b=>b.addEventListener('click',()=>{ const t=document.getElementById(b.dataset.jump); if(t) t.scrollIntoView({behavior:'smooth',block:'start'}); }));
+  document.querySelectorAll('[data-rf]').forEach(b=>b.addEventListener('click',()=>{ S.rf=b.dataset.rf; const y=window.scrollY; drawView(); window.scrollTo(0,y); }));
+  const rx=$('#rpExpand'); if(rx) rx.addEventListener('click',()=>{ S.rx=!S.rx; const y=window.scrollY; drawView(); window.scrollTo(0,y); });
+  const rp=$('#rpPrint'); if(rp) rp.addEventListener('click',()=>window.print());
+  const rc=$('#rpCopy'); if(rc) rc.addEventListener('click',()=>{ const u=location.origin+location.pathname+'#recruitment'; (navigator.clipboard?navigator.clipboard.writeText(u):Promise.reject()).then(()=>toast('Link copied')).catch(()=>toast(u)); });
+  document.querySelectorAll('.arow').forEach(el=>{ const go=()=>{ S.af={q:'',area:el.dataset.area,owner:'',status:'',flag:''}; S.tab=Math.max(0,VIEWS.findIndex(v=>v.kind==='actions')); syncHash(); drawView(); }; el.addEventListener('click',go); el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go();}}); });
   document.querySelectorAll('[data-goto="kpi"]').forEach(b=>b.addEventListener('click',()=>{ const i=VIEWS.findIndex((v,j)=>j>0 && S.sheets.find(s=>s.name===v.label && classify(s)==='kpi')); if(i>0){S.tab=i;drawView();} }));
   document.querySelectorAll('[data-f]').forEach(s=>s.addEventListener('change',()=>{ S.af[s.dataset.f]=s.value; drawView(); }));
   const q=$('#f-q'); if(q){ q.addEventListener('input',()=>{ S.af.q=q.value; const pos=q.selectionStart; drawView(); const n=$('#f-q'); n.focus(); n.setSelectionRange(pos,pos); }); }
   const c=$('#f-clear'); if(c) c.addEventListener('click',()=>{ S.af={q:'',area:'',owner:'',status:'',flag:''}; drawView(); });
   const ex=$('#expandAll'); if(ex) ex.addEventListener('click',()=>{ S.expand=!S.expand; drawView(); });
 }
-$('#tabs').addEventListener('click',e=>{ const t=e.target.closest('.tab'); if(!t) return; S.tab=+t.dataset.i; drawView(); try{ localStorage.setItem(KEY+'-tab', S.tab); }catch(_){} });
+$('#tabs').addEventListener('click',e=>{ const t=e.target.closest('.tab'); if(!t) return; S.tab=+t.dataset.i; syncHash(); drawView(); window.scrollTo({top:0}); try{ localStorage.setItem(KEY+'-tab2', S.tab); }catch(_){} });
 
+function syncHash(){ const v=VIEWS[S.tab]; try{ history.replaceState(null,'', v&&v.id ? '#'+v.id : location.pathname+location.search); }catch(_){} }
+window.addEventListener('hashchange',()=>{ const hi=VIEWS.findIndex(v=>v.id && '#'+v.id===location.hash); if(hi>=0){ S.tab=hi; drawView(); } });
+window.addEventListener('beforeprint',()=>document.querySelectorAll('#view details').forEach(d=>{ if(!d.open){ d.open=true; d.dataset.po='1'; } }));
+window.addEventListener('afterprint',()=>document.querySelectorAll('#view details[data-po]').forEach(d=>{ d.open=false; delete d.dataset.po; }));
 function toast(msg, err){ const t=$('#toast'); t.textContent=msg; t.className='toast'+(err?' err':''); t.hidden=false; clearTimeout(toast._t); toast._t=setTimeout(()=>t.hidden=true, err?6000:3000); }
 
 function loadFile(file){
@@ -687,7 +1015,7 @@ function SAMPLE(){
 let restored=false;
 try{ const s=JSON.parse(localStorage.getItem(KEY)||'null'); if(s && Array.isArray(s.sheets) && s.sheets.length){ S.sheets=s.sheets; S.file=s.file; S.loadedAt=s.loadedAt; S.sample=false; restored=true; } }catch(_){}
 if (!restored) S.sheets=SAMPLE();
-try{ const t=+localStorage.getItem(KEY+'-tab'); if(t>0) S.tab=t; }catch(_){}
+try{ const t=+localStorage.getItem(KEY+'-tab2'); if(t>0) S.tab=t; }catch(_){}
 render();
 })();
 </script>
