@@ -1,0 +1,696 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>[hidden]{display:none!important}body{margin:0}</style>
+<title>Process Plan Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+/* Layout: governance console — header with source + upload, sticky tab rail, summary-first overview, one view per workbook sheet */
+:root{
+  --bg:#F2F5F4; --surface:#FFFFFF; --surface-2:#E8EEEC; --line:#D3DCD9; --ink:#13201E; --muted:#596966;
+  --accent:#0D6B67; --accent-ink:#FFFFFF; --accent-soft:#D2E8E5;
+  --ok:#1C7448; --ok-bg:#DBF0E3; --warn:#8F5B00; --warn-bg:#FBEDCB; --bad:#AE2318; --bad-bg:#FADFDB;
+  --idle:#5F6967; --idle-bg:#E4E9E8; --info:#1D5C9F; --info-bg:#DBE7F6;
+  --f-display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body:"Public Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --f-mono:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0E1514; --surface:#15201F; --surface-2:#1C2927; --line:#2A3937; --ink:#E4EDEB; --muted:#92A4A0;
+  --accent:#4DBFB6; --accent-ink:#06201E; --accent-soft:#163F3C;
+  --ok:#62CF92; --ok-bg:#15361F; --warn:#F0BE5A; --warn-bg:#382A0F; --bad:#FF8B80; --bad-bg:#421A19;
+  --idle:#9BA7A5; --idle-bg:#22302E; --info:#83B4F0; --info-bg:#162B44; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E1514; --surface:#15201F; --surface-2:#1C2927; --line:#2A3937; --ink:#E4EDEB; --muted:#92A4A0;
+  --accent:#4DBFB6; --accent-ink:#06201E; --accent-soft:#163F3C;
+  --ok:#62CF92; --ok-bg:#15361F; --warn:#F0BE5A; --warn-bg:#382A0F; --bad:#FF8B80; --bad-bg:#421A19;
+  --idle:#9BA7A5; --idle-bg:#22302E; --info:#83B4F0; --info-bg:#162B44; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.5}
+.wrap{max-width:1280px;margin:0 auto;padding-inline:20px;padding-block:20px 48px}
+h1,h2,h3{font-family:var(--f-display);margin:0;text-wrap:balance;letter-spacing:-.01em}
+h1{font-size:clamp(22px,3.4vw,32px);font-weight:700;line-height:1.15}
+h2{font-size:18px;font-weight:700}
+h3{font-size:15px;font-weight:700}
+.muted{color:var(--muted)}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.eyebrow{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+button,select,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* header */
+.top{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between;padding-bottom:18px;border-bottom:1px solid var(--line)}
+.top-l{display:grid;gap:6px;min-width:0}
+.src{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;background:var(--surface-2);border:1px solid var(--line);font-size:12px;font-weight:600;white-space:nowrap}
+.chip.sample{background:var(--warn-bg);color:var(--warn);border-color:transparent}
+.chip.live{background:var(--accent-soft);color:var(--accent);border-color:transparent}
+.actions-bar{display:flex;gap:8px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:8px;border:1px solid var(--line);background:var(--surface);cursor:pointer;font-weight:600}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn svg{width:16px;height:16px}
+
+/* tabs */
+.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);display:flex;gap:2px;overflow-x:auto;padding-block:10px;margin-bottom:18px;border-bottom:1px solid var(--line);scrollbar-width:thin}
+.tab{flex:0 0 auto;padding:7px 14px;border-radius:7px;border:0;background:none;cursor:pointer;font-weight:600;color:var(--muted);white-space:nowrap}
+.tab:hover{color:var(--ink);background:var(--surface-2)}
+.tab[aria-selected="true"]{background:var(--ink);color:var(--bg)}
+.tab .n{font-family:var(--f-mono);font-size:11px;opacity:.7;margin-left:6px}
+
+/* panels */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px;min-width:0}
+.panel-h{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:minmax(0,1.4fr) minmax(0,1fr)}
+@media (max-width:900px){.g2{grid-template-columns:minmax(0,1fr)}}
+
+/* tiles */
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;margin-bottom:16px}
+.tile{background:var(--surface);padding:14px 16px;display:grid;gap:2px}
+.tile .v{font-family:var(--f-display);font-size:30px;font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums}
+.tile.bad .v{color:var(--bad)} .tile.warn .v{color:var(--warn)} .tile.ok .v{color:var(--ok)}
+.tile.ring{display:flex;align-items:center;gap:12px}
+.ring svg{width:54px;height:54px;flex:0 0 auto}
+
+/* pills */
+.pill{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap;background:var(--idle-bg);color:var(--idle)}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.pill.ok{background:var(--ok-bg);color:var(--ok)} .pill.warn{background:var(--warn-bg);color:var(--warn)}
+.pill.bad{background:var(--bad-bg);color:var(--bad)} .pill.info{background:var(--info-bg);color:var(--info)}
+.pill.plain::before{display:none}
+
+/* bars */
+.bar{height:8px;border-radius:99px;background:var(--surface-2);overflow:hidden;display:flex}
+.bar span{display:block;height:100%}
+.seg-done{background:var(--ok)} .seg-prog{background:var(--info)} .seg-block{background:var(--bad)} .seg-ns{background:var(--line)}
+.pbar{width:80px;height:6px;border-radius:99px;background:var(--surface-2);overflow:hidden;display:inline-block;vertical-align:middle}
+.pbar span{display:block;height:100%;background:var(--accent)}
+
+/* area rows */
+.arow{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,2fr) 48px auto;gap:12px;align-items:center;padding:10px 4px;border-top:1px solid var(--line);cursor:pointer;border-radius:6px}
+.arow:first-of-type{border-top:0}
+.arow:hover{background:var(--surface-2)}
+.arow .nm{font-weight:600;overflow-wrap:anywhere}
+.arow .ow{font-size:12px;color:var(--muted)}
+@media (max-width:560px){.arow{grid-template-columns:minmax(0,1fr) auto}.arow .bar{grid-column:1/-1;order:3}.arow .pct{display:none}}
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+
+/* attention */
+.att{display:grid;gap:0}
+.att-i{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:start;padding:10px 0;border-top:1px solid var(--line)}
+.att-i:first-child{border-top:0}
+.att-i .t{font-weight:600;overflow-wrap:anywhere}
+.att-i .m{font-size:12px;color:var(--muted)}
+.att-i .d{font-family:var(--f-mono);font-size:12px;text-align:right;white-space:nowrap}
+.empty{padding:22px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:8px}
+
+/* milestones */
+.ms{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.ms-c{border:1px solid var(--line);border-radius:8px;padding:12px;display:grid;gap:8px;background:var(--bg)}
+.ms-c .row{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.ms-c .big{font-family:var(--f-display);font-size:22px;font-weight:700}
+
+/* tables */
+.tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th{position:sticky;top:0;background:var(--surface-2);text-align:left;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700;padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+tbody tr:hover td{background:color-mix(in srgb,var(--surface-2) 55%,transparent)}
+td.wide{min-width:260px;max-width:420px}
+td.mid{min-width:140px;max-width:280px}
+td.num{white-space:nowrap;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+tr.overdue td:first-child{box-shadow:inset 3px 0 0 var(--bad)}
+tr.soon td:first-child{box-shadow:inset 3px 0 0 var(--warn)}
+tr.blocked td:first-child{box-shadow:inset 3px 0 0 var(--bad)}
+tr.done td{color:var(--muted)}
+
+/* filters */
+.filters{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;align-items:center}
+.filters input,.filters select{padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--surface);min-width:0}
+.filters input{flex:1 1 220px}
+.count{font-size:12px;color:var(--muted);margin-left:auto}
+
+/* cards */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,360px),1fr));gap:14px;align-items:start}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:grid;gap:10px;min-width:0}
+.card-h{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.people{display:flex;flex-wrap:wrap;gap:6px;font-size:12px}
+.person{padding:2px 8px;border-radius:6px;background:var(--accent-soft);color:var(--accent);font-weight:600}
+.person.co{background:var(--surface-2);color:var(--muted)}
+.obj{color:var(--ink);overflow-wrap:anywhere}
+details summary{cursor:pointer;font-weight:600;color:var(--accent);font-size:13px;list-style:none}
+details summary::-webkit-details-marker{display:none}
+details summary::before{content:"+ ";font-family:var(--f-mono)}
+details[open] summary::before{content:"− "}
+.flow{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}
+@media (max-width:520px){.flow{grid-template-columns:minmax(0,1fr)}}
+.flow > div{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;font-size:12.5px;overflow-wrap:anywhere}
+.flow .eyebrow{display:block;margin-bottom:4px;color:var(--accent)}
+dl{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;margin:12px 0 0}
+dt{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700}
+dd{margin:0 0 4px;overflow-wrap:anywhere}
+
+/* raci */
+.raci td.rc{text-align:center;width:1%}
+.lt{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:7px;font-family:var(--f-mono);font-weight:500;font-size:13px}
+.lt.A{background:var(--ink);color:var(--bg)} .lt.R{background:var(--info-bg);color:var(--info)}
+.lt.C{background:var(--ok-bg);color:var(--ok)} .lt.I{background:var(--idle-bg);color:var(--idle)}
+
+/* kpi */
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,280px),1fr));gap:14px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:grid;gap:10px}
+.kpi .vals{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.kpi .vals div{display:grid}
+.kpi .vals b{font-family:var(--f-display);font-size:20px;font-variant-numeric:tabular-nums}
+.track{position:relative;height:10px;border-radius:99px;background:var(--surface-2)}
+.track .fillx{position:absolute;left:0;top:0;bottom:0;border-radius:99px;background:var(--accent)}
+.track .tgt{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--ink)}
+
+/* drop overlay + toast */
+.drop{position:fixed;inset:0;z-index:50;display:grid;place-items:center;background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:blur(2px)}
+.drop div{border:2px dashed var(--accent);border-radius:16px;padding:40px 48px;background:var(--surface);font-family:var(--f-display);font-size:20px;font-weight:700;color:var(--accent);text-align:center}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:60;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;font-weight:600;max-width:calc(100% - 32px)}
+.toast.err{background:var(--bad);color:#fff}
+.note{font-size:12px;color:var(--muted);margin-top:24px;display:flex;gap:8px;align-items:flex-start}
+@media (prefers-reduced-motion:no-preference){.view{animation:fade .18s ease-out}@keyframes fade{from{opacity:.4}to{opacity:1}}}
+@media (max-width:480px){.wrap{padding-inline:16px}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div class="top-l">
+      <span class="eyebrow">Process setup &amp; ownership</span>
+      <h1 id="planTitle">Process Plan Dashboard</h1>
+      <div class="src" id="src"></div>
+    </div>
+    <div class="actions-bar">
+      <input type="file" id="fileIn" accept=".xlsx,.xlsm,.xls,.csv" hidden>
+      <button class="btn primary" id="uploadBtn" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M6 10l6-6 6 6M4 20h16"/></svg>
+        Upload tracker
+      </button>
+      <button class="btn" id="resetBtn" type="button" hidden>Show sample</button>
+    </div>
+  </header>
+  <nav class="tabs" id="tabs" role="tablist" aria-label="Workbook views"></nav>
+  <main id="view" class="view"></main>
+  <p class="note"><span>Your Excel file is read inside your own browser. It is not uploaded to any server. The last file you opened is remembered on this device only.</span></p>
+</div>
+<div class="drop" id="drop" hidden><div>Drop the Excel tracker to load it</div></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(function(){
+const XL = window.XLSX;
+const $ = s => document.querySelector(s);
+const esc = v => String(v ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const pad = n => String(n).padStart(2,'0');
+const TODAY = (()=>{const d=new Date(); d.setHours(0,0,0,0); return d;})();
+const iso = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const plus = n => {const d=new Date(TODAY); d.setDate(d.getDate()+n); return iso(d);};
+const MON = {jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
+const KEY = 'process-plan-dashboard-v1';
+
+function toDate(v){
+  if (v==null || v==='') return null;
+  if (v instanceof Date) return v;
+  if (typeof v==='number' && XL && v>20000 && v<80000){ const c=XL.SSF.parse_date_code(v); if(c) return new Date(c.y,c.m-1,c.d); }
+  const s=String(v).trim(); let m;
+  if ((m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/))) return new Date(+m[1],m[2]-1,+m[3]);
+  if ((m=s.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})$/))){ let y=+m[3]; if(y<100) y+=2000; return new Date(y,m[2]-1,+m[1]); }
+  if ((m=s.match(/^(\d{1,2})[\s\-]([A-Za-z]{3})[A-Za-z]*[\s\-,]+(\d{2,4})$/)) && MON[m[2].toLowerCase()]!=null){ let y=+m[3]; if(y<100) y+=2000; return new Date(y,MON[m[2].toLowerCase()],+m[1]); }
+  return null;
+}
+const fmtD = d => d ? d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'2-digit'}) : '—';
+const days = d => d ? Math.round((d-TODAY)/86400000) : null;
+
+/* ---------- parsing ---------- */
+function cellVal(c){
+  if (!c || c.v==null) return null;
+  if (c.t==='e') return null;
+  if (c.t==='n' && c.z && XL.SSF.is_date(c.z)){ const d=XL.SSF.parse_date_code(c.v); if(d) return `${d.y}-${pad(d.m)}-${pad(d.d)}`; }
+  if (c.t==='d') return iso(new Date(c.v));
+  if (typeof c.v==='string'){ const s=c.v.trim(); return s||null; }
+  return c.v;
+}
+function toTable(name, aoa){
+  const nn = r => r.filter(v=>v!==null && v!=='').length;
+  let title=null, hi=-1;
+  for (let i=0;i<Math.min(aoa.length,12);i++){
+    const n=nn(aoa[i]);
+    if (n>=3){ hi=i; break; }
+    if (n>=1 && !title) title=String(aoa[i].find(v=>v!=null && v!==''));
+  }
+  if (hi<0) return null;
+  let headers = aoa[hi].map(v => v==null ? '' : String(v).replace(/\s+/g,' ').trim());
+  let last = headers.length-1; while(last>0 && !headers[last]) last--;
+  headers = headers.slice(0,last+1).map((h,i)=>h||`Column ${i+1}`);
+  const rows = aoa.slice(hi+1).map(r=>r.slice(0,last+1)).filter(r=>nn(r)>=Math.min(3,last+1));
+  return {name, title, headers, rows};
+}
+function parseWB(buf){
+  const wb = XL.read(buf,{type:'array',cellNF:true,cellDates:false});
+  const out=[];
+  wb.SheetNames.forEach(name=>{
+    if (/dashboard/i.test(name)) return;
+    const ws=wb.Sheets[name]; if(!ws || !ws['!ref']) return;
+    const r=XL.utils.decode_range(ws['!ref']); const aoa=[];
+    for (let R=r.s.r; R<=Math.min(r.e.r, r.s.r+3000); R++){
+      const row=[]; for (let C=r.s.c; C<=Math.min(r.e.c, r.s.c+60); C++) row.push(cellVal(ws[XL.utils.encode_cell({r:R,c:C})]));
+      aoa.push(row);
+    }
+    const t=toTable(name,aoa); if (t && t.rows.length) out.push(t);
+  });
+  return out;
+}
+
+/* ---------- classification & models ---------- */
+const lowH = sh => sh.headers.map(h=>h.toLowerCase());
+const col = (sh, re, not) => lowH(sh).findIndex(h => re.test(h) && !(not && not.test(h)));
+const RACI_SET = new Set(['R','A','C','I','A/R','R/A']);
+function raciCols(sh){
+  const out=[];
+  sh.headers.forEach((h,i)=>{ const vals=sh.rows.map(r=>r[i]).filter(v=>v!=null && v!==''); if(vals.length>=3 && vals.filter(v=>RACI_SET.has(String(v).trim().toUpperCase())).length/vals.length>=.7) out.push(i); });
+  return out;
+}
+function classify(sh){
+  const h = lowH(sh).join(' | ');
+  if (col(sh,/^(action|task|deliverable)/)>=0 && /status/.test(h) && /target|due|deadline|date/.test(h)) return 'actions';
+  if (/(^|\| )(kpi|metric)/.test(h) && /target/.test(h)) return 'kpi';
+  if (raciCols(sh).length>=3) return 'raci';
+  if (/entry criteria|objective/.test(h)) return 'cards';
+  if (/^process\b|process area/.test(h) && /owner/.test(h)) return 'cards';
+  return 'table';
+}
+function normStatus(v){
+  const s=String(v??'').trim().toLowerCase();
+  if (!s) return 'Not Started';
+  if (/done|complete|closed|achieved/.test(s)) return 'Done';
+  if (/block/.test(s)) return 'Blocked';
+  if (/hold/.test(s)) return 'On Hold';
+  if (/progress|wip|ongoing|started/.test(s) && !/not/.test(s)) return 'In Progress';
+  if (/not/.test(s)) return 'Not Started';
+  return String(v).trim();
+}
+function normPct(v, status){
+  if (v==null || v==='') return status==='Done' ? 1 : 0;
+  let n = typeof v==='number' ? v : parseFloat(String(v));
+  if (isNaN(n)) return status==='Done'?1:0;
+  if (typeof v==='string' && /%/.test(v)) n/=100; else if (n>1) n/=100;
+  return Math.max(0, Math.min(1, n));
+}
+function flagOf(status, due){
+  if (status==='Done') return 'Done';
+  if (status==='Blocked') return 'Blocked';
+  if (!due) return 'No date';
+  const d=days(due);
+  if (d<0) return 'Overdue';
+  if (d<=7) return 'Due soon';
+  return 'On track';
+}
+function actionModel(sh){
+  const c = { id:col(sh,/^id$|^#$|^s\.? ?no/), act:col(sh,/^(action|task|deliverable)/), area:col(sh,/process area|^process$|^area$|workstream|function/),
+    sub:col(sh,/sub-area|sub area/), owner:col(sh,/owner/,/co-owner|co owner/), partner:col(sh,/co-owner|co owner|partner/), dep:col(sh,/depend/),
+    ms:col(sh,/milestone|phase/), start:col(sh,/start/), target:col(sh,/target|due date|deadline/), pri:col(sh,/priority/),
+    status:col(sh,/^status|status$/), pct:col(sh,/%|progress|complete/), notes:col(sh,/note|decision|comment|remark/) };
+  const g = (r,k) => c[k]>=0 ? r[c[k]] : null;
+  return sh.rows.filter(r=>g(r,'act')).map((r,i)=>{
+    const status=normStatus(g(r,'status')); const due=toDate(g(r,'target'));
+    return { id:g(r,'id') ?? (i+1), act:String(g(r,'act')), area:g(r,'area') ? String(g(r,'area')) : 'Unassigned', sub:g(r,'sub'),
+      owner:g(r,'owner') ? String(g(r,'owner')) : 'Unassigned', partner:g(r,'partner'), dep:g(r,'dep'), ms:g(r,'ms'),
+      start:toDate(g(r,'start')), due, pri:g(r,'pri'), status, pct:normPct(g(r,'pct'),status), notes:g(r,'notes'),
+      flag:flagOf(status,due), d:days(due) };
+  });
+}
+function kpiModel(sh){
+  const c = { name:col(sh,/^(kpi|metric)/), area:col(sh,/process area|^process$|area/), owner:col(sh,/owner/), def:col(sh,/definition|formula/),
+    unit:col(sh,/unit/), freq:col(sh,/frequen/), dir:col(sh,/better|direction/), base:col(sh,/baseline/), tgt:col(sh,/target/), cur:col(sh,/current|actual/) };
+  const g=(r,k)=>c[k]>=0?r[c[k]]:null; const num=v=>{if(v==null||v==='')return null; const n=typeof v==='number'?v:parseFloat(String(v).replace(/[%,]/g,'')); return isNaN(n)?null:(typeof v==='string'&&/%/.test(v)?n/100:n);};
+  return sh.rows.filter(r=>g(r,'name')).map(r=>{
+    const unit=String(g(r,'unit')??''); const lower=/lower|less|down|min/i.test(String(g(r,'dir')??''));
+    const base=num(g(r,'base')), tgt=num(g(r,'tgt')), cur=num(g(r,'cur'));
+    let flag='No data';
+    if (cur!=null && tgt!=null){ flag = lower ? (cur<=tgt?'On track':cur<=tgt*1.1?'Watch':'Off track') : (cur>=tgt?'On track':cur>=tgt*.9?'Watch':'Off track'); }
+    return {name:g(r,'name'),area:g(r,'area'),owner:g(r,'owner'),def:g(r,'def'),unit,freq:g(r,'freq'),lower,base,tgt,cur,flag};
+  });
+}
+
+/* ---------- display helpers ---------- */
+function toneOf(v){
+  const s=String(v??'').toLowerCase().trim();
+  if (!s) return null;
+  if (/^(done|complete|achieved|ok|yes|green|on track|ready)/.test(s) || /green –/.test(s)) return 'ok';
+  if (/overdue|blocked|off track|^red|^no$|^high$|not started.*review/.test(s)) return 'bad';
+  if (/due soon|watch|amber|on hold|owner to confirm|^medium$|^if /.test(s)) return 'warn';
+  if (/in progress/.test(s)) return 'info';
+  if (/not started|no date|no data|^low$/.test(s)) return '';
+  return null;
+}
+const pill = (v,tone) => { const t = tone ?? toneOf(v); return `<span class="pill ${t||''}">${esc(v)}</span>`; };
+const PILL_WORDS = /^(done|not started|in progress|blocked|on hold|yes|no|high|medium|low|on track|overdue|due soon|watch|off track|no data|owner to confirm|achieved)$/i;
+function fmtCell(v, header){
+  if (v==null || v==='') return '<span class="muted">—</span>';
+  const h=(header||'').toLowerCase();
+  if (typeof v==='string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) return `<span class="mono">${fmtD(toDate(v))}</span>`;
+  if (typeof v==='number' && /%|complete|progress/.test(h) && v<=1) return `<span class="mono">${Math.round(v*100)}%</span>`;
+  if (typeof v==='number') return `<span class="mono">${Number.isInteger(v)?v:v.toFixed(2)}</span>`;
+  const s=String(v);
+  if (PILL_WORDS.test(s) || /^(RED|AMBER|GREEN)\b/.test(s)) return pill(s);
+  return esc(s).replace(/\s*→\s*/g,' → ');
+}
+function ring(p){
+  const r=22, C=2*Math.PI*r;
+  return `<svg viewBox="0 0 54 54" aria-hidden="true"><circle cx="27" cy="27" r="${r}" fill="none" stroke="var(--surface-2)" stroke-width="7"/><circle cx="27" cy="27" r="${r}" fill="none" stroke="var(--accent)" stroke-width="7" stroke-linecap="round" stroke-dasharray="${(C*p).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 27 27)"/></svg>`;
+}
+const flagTone = f => ({'Done':'ok','On track':'ok','Due soon':'warn','Overdue':'bad','Blocked':'bad','No date':''})[f] ?? null;
+function dueText(a){
+  if (a.status==='Done') return 'done';
+  if (a.d==null) return 'no date';
+  if (a.d<0) return `${-a.d}d overdue`;
+  if (a.d===0) return 'due today';
+  return `in ${a.d}d`;
+}
+
+/* ---------- state ---------- */
+const S = { sheets:[], file:null, loadedAt:null, sample:true, tab:0, af:{q:'',area:'',owner:'',status:'',flag:''}, expand:false };
+
+function buildViews(){
+  const views=[]; const act=S.sheets.find(s=>classify(s)==='actions'); const kpi=S.sheets.find(s=>classify(s)==='kpi');
+  const A = act ? actionModel(act) : []; const K = kpi ? kpiModel(kpi) : [];
+  views.push({label:'Overview', render:()=>renderOverview(A,K,act)});
+  if (act) views.push({label:act.name, n:A.length, render:()=>renderActions(A)});
+  if (kpi) views.push({label:kpi.name, n:K.length, render:()=>renderKPIs(K)});
+  S.sheets.forEach(sh=>{
+    if (sh===act || sh===kpi) return;
+    const t=classify(sh);
+    views.push({label:sh.name, n:sh.rows.length, render:()=> t==='raci'?renderRACI(sh): t==='cards'?renderCards(sh): renderTable(sh)});
+  });
+  return views;
+}
+let VIEWS=[];
+function render(){
+  VIEWS = buildViews();
+  if (S.tab>=VIEWS.length) S.tab=0;
+  const first=S.sheets.find(s=>s.title);
+  $('#planTitle').textContent = S.sample ? 'Sample process plan' : (S.file ? S.file.replace(/\.[^.]+$/,'').replace(/[_]+/g,' ') : (first?.title || 'Process plan'));
+  $('#src').innerHTML = S.sample
+    ? `<span class="chip sample">Sample data</span><span class="muted">Example rows only. Upload your Excel tracker to see your plan.</span>`
+    : `<span class="chip live">Loaded</span><span class="mono">${esc(S.file)}</span><span class="muted">· ${S.sheets.length} sheets · opened ${esc(S.loadedAt||'')}</span>`;
+  $('#resetBtn').hidden = S.sample;
+  $('#tabs').innerHTML = VIEWS.map((v,i)=>`<button class="tab" role="tab" type="button" data-i="${i}" aria-selected="${i===S.tab}">${esc(v.label)}${v.n!=null?`<span class="n">${v.n}</span>`:''}</button>`).join('');
+  drawView();
+}
+function drawView(){
+  const v=$('#view'); v.classList.remove('view'); void v.offsetWidth; v.classList.add('view');
+  v.innerHTML = VIEWS[S.tab].render();
+  document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected', +t.dataset.i===S.tab));
+  bindView();
+}
+
+/* ---------- overview ---------- */
+function renderOverview(A,K,actSheet){
+  if (!A.length) return `<div class="empty">No action tracker found in this workbook. Add a sheet with Action, Owner, Target Date and Status columns to see progress here. Other sheets are listed in the tabs above.</div>`;
+  const cnt = f => A.filter(f).length;
+  const done=cnt(a=>a.status==='Done'), prog=cnt(a=>a.status==='In Progress'), over=cnt(a=>a.flag==='Overdue'), soon=cnt(a=>a.flag==='Due soon'), blk=cnt(a=>a.status==='Blocked');
+  const pct = A.reduce((s,a)=>s+a.pct,0)/A.length;
+  const tiles = `<section class="tiles" aria-label="Summary">
+    <div class="tile"><span class="eyebrow">Actions</span><span class="v">${A.length}</span></div>
+    <div class="tile ok"><span class="eyebrow">Done</span><span class="v">${done}</span></div>
+    <div class="tile"><span class="eyebrow">In progress</span><span class="v">${prog}</span></div>
+    <div class="tile ${over?'bad':''}"><span class="eyebrow">Overdue</span><span class="v">${over}</span></div>
+    <div class="tile ${soon?'warn':''}"><span class="eyebrow">Due ≤ 7 days</span><span class="v">${soon}</span></div>
+    <div class="tile ${blk?'bad':''}"><span class="eyebrow">Blocked</span><span class="v">${blk}</span></div>
+    <div class="tile ring">${ring(pct)}<div><span class="eyebrow">Complete</span><div class="v">${Math.round(pct*100)}%</div></div></div>
+  </section>`;
+
+  // by area
+  const areas={}; A.forEach(a=>{(areas[a.area] ||= []).push(a);});
+  const areaRows = Object.entries(areas).map(([name,L])=>{
+    const n=L.length, d=L.filter(a=>a.status==='Done').length, p=L.filter(a=>a.status==='In Progress').length, b=L.filter(a=>a.status==='Blocked').length;
+    const o=L.filter(a=>a.flag==='Overdue').length, s=L.filter(a=>a.flag==='Due soon').length;
+    const owners=[...new Set(L.map(a=>a.owner))]; const pc=L.reduce((x,a)=>x+a.pct,0)/n;
+    const flag = (o+b)>0 ? ['Action needed','bad'] : s>0 ? ['Due soon','warn'] : d===n ? ['Complete','ok'] : ['On track','ok'];
+    const w = x => (x/n*100).toFixed(1)+'%';
+    return `<div class="arow" data-area="${esc(name)}" role="button" tabindex="0" title="Show actions for ${esc(name)}">
+      <div><div class="nm">${esc(name)}</div><div class="ow">${esc(owners.slice(0,2).join(', '))}${owners.length>2?` +${owners.length-2}`:''} · ${n} actions</div></div>
+      <div class="bar" aria-label="${d} done, ${p} in progress, ${b} blocked of ${n}"><span class="seg-done" style="width:${w(d)}"></span><span class="seg-prog" style="width:${w(p)}"></span><span class="seg-block" style="width:${w(b)}"></span></div>
+      <div class="pct mono">${Math.round(pc*100)}%</div>
+      <div>${pill(flag[0],flag[1])}</div></div>`;
+  }).join('');
+
+  // attention
+  const rank={Overdue:0,Blocked:1,'Due soon':2};
+  const att = A.filter(a=>rank[a.flag]!=null).sort((x,y)=>rank[x.flag]-rank[y.flag] || (x.d??999)-(y.d??999)).slice(0,8);
+  const attHtml = att.length ? att.map(a=>`<div class="att-i">${pill(a.flag,flagTone(a.flag))}<div><div class="t">${esc(a.act)}</div><div class="m">${esc(a.owner)} · ${esc(a.area)}</div></div><div class="d">${fmtD(a.due)}<br><span class="muted">${dueText(a)}</span></div></div>`).join('')
+    : `<div class="empty">Nothing overdue, blocked or due in the next 7 days.</div>`;
+
+  // milestones
+  const groups={}; A.forEach(a=>{ const k = a.ms ? String(a.ms) : (a.due ? a.due.toLocaleDateString('en-GB',{month:'short',year:'numeric'}) : 'No date'); (groups[k] ||= []).push(a); });
+  const ms = Object.entries(groups).map(([k,L])=>{ const ds=L.map(a=>a.due).filter(Boolean); const tgt=ds.length?new Date(Math.max(...ds)):null; return {k,L,tgt}; })
+    .sort((a,b)=>(a.tgt?.getTime()??9e15)-(b.tgt?.getTime()??9e15));
+  const msHtml = ms.map(({k,L,tgt})=>{
+    const d=L.filter(a=>a.status==='Done').length, o=L.filter(a=>a.flag==='Overdue').length, s=L.filter(a=>a.flag==='Due soon').length;
+    const st = d===L.length ? ['Achieved','ok'] : o ? [`${o} overdue`,'bad'] : s ? ['Due soon','warn'] : ['On track','ok'];
+    return `<div class="ms-c"><div class="row"><h3>${esc(k)}</h3>${pill(st[0],st[1])}</div>
+      <div class="row"><span class="big">${d}<span class="muted" style="font-size:14px"> / ${L.length}</span></span><span class="mono muted">${tgt?fmtD(tgt):'—'}</span></div>
+      <div class="bar"><span class="seg-done" style="width:${(d/L.length*100).toFixed(1)}%"></span></div></div>`;
+  }).join('');
+
+  // owners
+  const own={}; A.forEach(a=>{(own[a.owner] ||= []).push(a);});
+  const ownRows = Object.entries(own).sort((a,b)=>b[1].length-a[1].length).map(([o,L])=>{
+    const open=L.filter(a=>a.status!=='Done').length, ov=L.filter(a=>a.flag==='Overdue').length, pc=L.reduce((x,a)=>x+a.pct,0)/L.length;
+    return `<tr><td>${esc(o)}</td><td class="num">${L.length}</td><td class="num">${open}</td><td class="num">${ov?`<span class="pill bad plain">${ov}</span>`:'0'}</td><td class="num"><span class="pbar"><span style="width:${pc*100}%"></span></span> ${Math.round(pc*100)}%</td></tr>`;
+  }).join('');
+
+  // kpi
+  let kpiHtml='';
+  if (K.length){
+    const kc=f=>K.filter(k=>k.flag===f).length;
+    kpiHtml = `<section class="panel"><div class="panel-h"><h2>KPI health</h2><button class="btn" data-goto="kpi" type="button">Open KPIs</button></div>
+      <div class="tiles" style="margin:0"><div class="tile ok"><span class="eyebrow">On track</span><span class="v">${kc('On track')}</span></div>
+      <div class="tile warn"><span class="eyebrow">Watch</span><span class="v">${kc('Watch')}</span></div>
+      <div class="tile bad"><span class="eyebrow">Off track</span><span class="v">${kc('Off track')}</span></div>
+      <div class="tile"><span class="eyebrow">No data yet</span><span class="v">${kc('No data')}</span></div></div></section>`;
+  }
+
+  return `${tiles}
+  <div class="grid g2">
+    <section class="panel"><div class="panel-h"><h2>Progress by process area</h2>
+      <div class="legend"><span><i class="seg-done"></i>Done</span><span><i class="seg-prog"></i>In progress</span><span><i class="seg-block"></i>Blocked</span><span><i class="seg-ns"></i>Not started</span></div></div>
+      ${areaRows}</section>
+    <section class="panel"><div class="panel-h"><h2>Needs attention</h2><span class="muted">${att.length} item${att.length===1?'':'s'}</span></div><div class="att">${attHtml}</div></section>
+  </div>
+  <section class="panel" style="margin-top:16px"><div class="panel-h"><h2>Milestones</h2><span class="muted">Grouped by ${A.some(a=>a.ms)?'milestone':'target month'}</span></div><div class="ms">${msHtml}</div></section>
+  <div class="grid g2" style="margin-top:16px">
+    <section class="panel"><div class="panel-h"><h2>Load by owner</h2></div><div class="tbl-wrap" style="border:0"><table><thead><tr><th>Owner</th><th>Total</th><th>Open</th><th>Overdue</th><th>Progress</th></tr></thead><tbody>${ownRows}</tbody></table></div></section>
+    ${kpiHtml || `<section class="panel"><h2>Flag rules</h2><p class="muted">Overdue: target date has passed and the action is not done. Due soon: target within 7 days. Blocked: status is Blocked. Done actions are always green.</p></section>`}
+  </div>`;
+}
+
+/* ---------- actions ---------- */
+function renderActions(A){
+  const uniq = k => [...new Set(A.map(a=>a[k]).filter(Boolean))].sort();
+  const opt = (k,label) => `<select id="f-${k}" data-f="${k}" aria-label="${label}"><option value="">All ${label.toLowerCase()}</option>${uniq(k==='flag'?'flag':k).map(v=>`<option ${S.af[k]===String(v)?'selected':''}>${esc(v)}</option>`).join('')}</select>`;
+  const f=S.af; const q=f.q.toLowerCase();
+  const L = A.filter(a=>(!f.area||a.area===f.area)&&(!f.owner||a.owner===f.owner)&&(!f.status||a.status===f.status)&&(!f.flag||a.flag===f.flag)
+      &&(!q||[a.act,a.owner,a.area,a.partner,a.notes,a.id].join(' ').toLowerCase().includes(q)))
+    .sort((x,y)=>(x.status==='Done')-(y.status==='Done') || (x.due?.getTime()??9e15)-(y.due?.getTime()??9e15));
+  const cls = a => a.flag==='Overdue'?'overdue':a.flag==='Due soon'?'soon':a.flag==='Blocked'?'blocked':a.status==='Done'?'done':'';
+  const rows = L.map(a=>`<tr class="${cls(a)}"><td class="num">${esc(a.id)}</td>
+    <td class="wide"><strong>${esc(a.act)}</strong>${a.dep?`<div class="muted" style="font-size:12px">Needs: ${esc(a.dep)}</div>`:''}${a.notes?`<div class="muted" style="font-size:12px">${esc(a.notes)}</div>`:''}</td>
+    <td class="mid">${esc(a.area)}${a.sub?`<div class="muted" style="font-size:12px">${esc(a.sub)}</div>`:''}</td>
+    <td class="mid">${esc(a.owner)}${a.partner&&a.partner!=='—'?`<div class="muted" style="font-size:12px">with ${esc(a.partner)}</div>`:''}</td>
+    <td>${a.ms?esc(a.ms):'<span class="muted">—</span>'}</td>
+    <td class="num">${fmtD(a.due)}<div class="muted" style="font-size:11px">${dueText(a)}</div></td>
+    <td>${a.pri?pill(a.pri):'<span class="muted">—</span>'}</td>
+    <td>${pill(a.status)}</td>
+    <td class="num"><span class="pbar"><span style="width:${a.pct*100}%"></span></span> ${Math.round(a.pct*100)}%</td>
+    <td>${pill(a.flag,flagTone(a.flag))}</td></tr>`).join('');
+  return `<div class="filters">
+    <input id="f-q" type="search" placeholder="Search actions, owners, notes" value="${esc(f.q)}" aria-label="Search">
+    ${opt('area','Areas')}${opt('owner','Owners')}${opt('status','Statuses')}${opt('flag','Flags')}
+    <button class="btn" id="f-clear" type="button">Clear</button><span class="count">${L.length} of ${A.length}</span></div>
+    <div class="tbl-wrap"><table><thead><tr><th>ID</th><th>Action</th><th>Area</th><th>Owner</th><th>Milestone</th><th>Target</th><th>Priority</th><th>Status</th><th>Progress</th><th>Flag</th></tr></thead>
+    <tbody>${rows || `<tr><td colspan="10"><div class="empty">No actions match these filters.</div></td></tr>`}</tbody></table></div>`;
+}
+
+/* ---------- KPIs ---------- */
+function renderKPIs(K){
+  const fmt = (v,k) => { if (v==null) return '—'; const pct=/%/.test(k.unit) || (!k.unit && Math.abs(v)<=1 && k.tgt!=null && k.tgt<=1); return pct ? `${Math.round(v*(Math.abs(v)<=1.5?100:1))}%` : (Number.isInteger(v)?v:v.toFixed(1)) + (k.unit && !/%/.test(k.unit)?` ${esc(k.unit)}`:''); };
+  const tone = {'On track':'ok','Watch':'warn','Off track':'bad','No data':''};
+  return `<div class="kpis">${K.map(k=>{
+    const max = Math.max(k.tgt??0,k.cur??0,k.base??0)*1.15 || 1;
+    return `<article class="kpi"><div class="card-h"><div><h3>${esc(k.name)}</h3><div class="muted" style="font-size:12px">${esc([k.area,k.owner,k.freq].filter(Boolean).join(' · '))}</div></div>${pill(k.flag,tone[k.flag])}</div>
+      <div class="vals"><div><span class="eyebrow">Baseline</span><b>${fmt(k.base,k)}</b></div><div><span class="eyebrow">Target</span><b>${fmt(k.tgt,k)}</b></div><div><span class="eyebrow">Current</span><b>${fmt(k.cur,k)}</b></div></div>
+      <div class="track" aria-hidden="true">${k.cur!=null?`<div class="fillx" style="width:${Math.min(100,k.cur/max*100)}%"></div>`:''}${k.tgt!=null?`<div class="tgt" style="left:${Math.min(99,k.tgt/max*100)}%"></div>`:''}</div>
+      <div class="muted" style="font-size:12px">${k.lower?'Lower is better':'Higher is better'}${k.def?` · ${esc(k.def)}`:''}</div></article>`;}).join('')}</div>
+    <p class="muted" style="margin-top:12px;font-size:12px">On track = target met · Watch = within 10% of target · Off track = more than 10% away · The dark tick on each bar marks the target.</p>`;
+}
+
+/* ---------- cards (process / plan sheets) ---------- */
+function renderCards(sh){
+  const H=lowH(sh);
+  const ti = H.findIndex(h=>h && !/^#$|^id$|^s\.? ?no|^column/.test(h));
+  const idx = re => H.findIndex(h=>re.test(h));
+  const own = H.findIndex(h=>/owner/.test(h) && !/co-owner|co owner/.test(h) && H.indexOf(h)!==ti);
+  const co = idx(/co-owner|co owner|stakeholder/), st = idx(/status/), obj = idx(/objective/), en = idx(/entry/), mp = idx(/main process|key activities|process steps/), ex = idx(/exit criteria/);
+  const used = new Set([ti,own,co,st,obj,en,mp,ex, idx(/^#$|^id$/)].filter(i=>i>=0));
+  const cards = sh.rows.map((r,ri)=>{
+    const title = r[ti] ?? `Row ${ri+1}`;
+    const flow = (en>=0||mp>=0||ex>=0) ? `<div class="flow">${[[en,'Entry'],[mp,'Main process'],[ex,'Exit']].filter(([i])=>i>=0).map(([i,l])=>`<div><span class="eyebrow">${l}</span>${fmtCell(r[i],sh.headers[i])}</div>`).join('')}</div>` : '';
+    const rest = sh.headers.map((h,i)=>used.has(i)||r[i]==null||r[i]===''?'':`<dt>${esc(h)}</dt><dd>${fmtCell(r[i],h)}</dd>`).join('');
+    return `<article class="card"><div class="card-h"><h3>${esc(title)}</h3>${st>=0&&r[st]?pill(r[st]):''}</div>
+      ${own>=0||co>=0?`<div class="people">${own>=0&&r[own]?`<span class="person">${esc(r[own])}</span>`:''}${co>=0&&r[co]?`<span class="person co">${esc(r[co])}</span>`:''}</div>`:''}
+      ${obj>=0&&r[obj]?`<div class="obj">${esc(r[obj])}</div>`:''}
+      ${flow||rest?`<details ${S.expand?'open':''}><summary>${flow?'Framework & details':'Details'}</summary>${flow}${rest?`<dl>${rest}</dl>`:''}</details>`:''}
+    </article>`;
+  }).join('');
+  return `<div class="panel-h">${sh.title?`<h2>${esc(sh.title)}</h2>`:'<span></span>'}<button class="btn" id="expandAll" type="button">${S.expand?'Collapse all':'Expand all'}</button></div><div class="cards">${cards}</div>`;
+}
+
+/* ---------- RACI ---------- */
+function renderRACI(sh){
+  const rc = raciCols(sh); const other = sh.headers.map((_,i)=>i).filter(i=>!rc.includes(i));
+  const counts = rc.map(i=>({h:sh.headers[i], A:sh.rows.filter(r=>/A/.test(String(r[i]??'').toUpperCase())).length, R:sh.rows.filter(r=>/R/.test(String(r[i]??'').toUpperCase())).length}));
+  const lt = v => { const s=String(v??'').trim().toUpperCase(); if(!s) return '<span class="muted">·</span>'; return s.split('/').map(x=>`<span class="lt ${esc(x)}">${esc(x)}</span>`).join(' '); };
+  const rows = sh.rows.map(r=>`<tr>${other.map(i=>`<td class="${i===other[1]?'wide':''}">${fmtCell(r[i],sh.headers[i])}</td>`).join('')}${rc.map(i=>`<td class="rc">${lt(r[i])}</td>`).join('')}</tr>`).join('');
+  return `<div class="panel-h">${sh.title?`<h2>${esc(sh.title)}</h2>`:'<span></span>'}<div class="legend"><span><span class="lt A">A</span> Accountable</span><span><span class="lt R">R</span> Responsible</span><span><span class="lt C">C</span> Consulted</span><span><span class="lt I">I</span> Informed</span></div></div>
+    <div class="tbl-wrap raci"><table><thead><tr>${other.map(i=>`<th>${esc(sh.headers[i])}</th>`).join('')}${rc.map(i=>`<th style="text-align:center;white-space:normal;min-width:90px">${esc(sh.headers[i])}</th>`).join('')}</tr></thead>
+    <tbody>${rows}</tbody><tfoot><tr>${other.map((_,j)=>`<td>${j===0?'<strong>Accountable / Responsible</strong>':''}</td>`).join('')}${counts.map(c=>`<td class="rc mono">${c.A} / ${c.R}</td>`).join('')}</tr></tfoot></table></div>`;
+}
+
+/* ---------- generic table ---------- */
+function renderTable(sh){
+  const lens = sh.headers.map((_,i)=>Math.max(0,...sh.rows.map(r=>String(r[i]??'').length)));
+  const cls = i => lens[i]>80?'wide':lens[i]>30?'mid':'';
+  return `${sh.title?`<div class="panel-h"><h2>${esc(sh.title)}</h2></div>`:''}<div class="tbl-wrap"><table><thead><tr>${sh.headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead>
+    <tbody>${sh.rows.map(r=>`<tr>${sh.headers.map((h,i)=>`<td class="${cls(i)}">${fmtCell(r[i],h)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+
+/* ---------- events ---------- */
+function bindView(){
+  document.querySelectorAll('.arow').forEach(el=>{ const go=()=>{ S.af={q:'',area:el.dataset.area,owner:'',status:'',flag:''}; S.tab=1; drawView(); }; el.addEventListener('click',go); el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go();}}); });
+  document.querySelectorAll('[data-goto="kpi"]').forEach(b=>b.addEventListener('click',()=>{ const i=VIEWS.findIndex((v,j)=>j>0 && S.sheets.find(s=>s.name===v.label && classify(s)==='kpi')); if(i>0){S.tab=i;drawView();} }));
+  document.querySelectorAll('[data-f]').forEach(s=>s.addEventListener('change',()=>{ S.af[s.dataset.f]=s.value; drawView(); }));
+  const q=$('#f-q'); if(q){ q.addEventListener('input',()=>{ S.af.q=q.value; const pos=q.selectionStart; drawView(); const n=$('#f-q'); n.focus(); n.setSelectionRange(pos,pos); }); }
+  const c=$('#f-clear'); if(c) c.addEventListener('click',()=>{ S.af={q:'',area:'',owner:'',status:'',flag:''}; drawView(); });
+  const ex=$('#expandAll'); if(ex) ex.addEventListener('click',()=>{ S.expand=!S.expand; drawView(); });
+}
+$('#tabs').addEventListener('click',e=>{ const t=e.target.closest('.tab'); if(!t) return; S.tab=+t.dataset.i; drawView(); try{ localStorage.setItem(KEY+'-tab', S.tab); }catch(_){} });
+
+function toast(msg, err){ const t=$('#toast'); t.textContent=msg; t.className='toast'+(err?' err':''); t.hidden=false; clearTimeout(toast._t); toast._t=setTimeout(()=>t.hidden=true, err?6000:3000); }
+
+function loadFile(file){
+  if (!file) return;
+  if (!XL){ toast('The Excel reader did not load. Check your connection and reload the page.', true); return; }
+  if (!/\.(xlsx|xlsm|xls|csv)$/i.test(file.name)){ toast('Please choose an Excel file (.xlsx, .xls or .csv).', true); return; }
+  const fr=new FileReader();
+  fr.onload = () => {
+    try{
+      const sheets=parseWB(new Uint8Array(fr.result));
+      if (!sheets.length){ toast('No tables found in that file. Each sheet needs a header row with at least three columns.', true); return; }
+      S.sheets=sheets; S.file=file.name; S.sample=false; S.tab=0; S.af={q:'',area:'',owner:'',status:'',flag:''};
+      S.loadedAt=new Date().toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+      try{ localStorage.setItem(KEY, JSON.stringify({file:S.file, loadedAt:S.loadedAt, sheets})); }catch(_){}
+      render(); toast(`Loaded ${sheets.length} sheets from ${file.name}`);
+    }catch(err){ toast('Could not read that file. Save it as .xlsx in Excel and try again.', true); }
+  };
+  fr.onerror = () => toast('Could not open that file. Try again.', true);
+  fr.readAsArrayBuffer(file);
+}
+$('#uploadBtn').addEventListener('click',()=>$('#fileIn').click());
+$('#fileIn').addEventListener('change',e=>{ loadFile(e.target.files[0]); e.target.value=''; });
+$('#resetBtn').addEventListener('click',()=>{ try{ localStorage.removeItem(KEY); }catch(_){} S.sheets=SAMPLE(); S.sample=true; S.file=null; S.tab=0; render(); toast('Showing sample data. Your file was forgotten on this device.'); });
+let dragN=0;
+window.addEventListener('dragenter',e=>{ if([...(e.dataTransfer?.types||[])].includes('Files')){ dragN++; $('#drop').hidden=false; }});
+window.addEventListener('dragleave',()=>{ dragN=Math.max(0,dragN-1); if(!dragN) $('#drop').hidden=true; });
+window.addEventListener('dragover',e=>e.preventDefault());
+window.addEventListener('drop',e=>{ e.preventDefault(); dragN=0; $('#drop').hidden=true; const f=e.dataTransfer?.files?.[0]; if(f) loadFile(f); });
+
+/* ---------- sample data (fictional, generic roles) ---------- */
+function SAMPLE(){
+  return [
+    {name:'Action Tracker', title:'Action & Milestone Tracker (sample)',
+     headers:['ID','Action / Deliverable','Process Area','Owner (Accountable)','Co-Owner / Partner','Milestone','Target Date','Priority','Status','% Complete','Notes'],
+     rows:[
+      ['A01','Prepare high-level process plan for leadership review','HR Function','HR Head','—','Pre-review',plus(2),'High','In Progress',.6,'Draft ready'],
+      ['A02','Name one accountable owner per process','HR Function','HR Head','—','Pre-review',plus(-3),'High','Done',1,''],
+      ['A03','Recruitment plan ready for review','Recruitment','Recruitment Lead','HR Head','Pre-review',plus(2),'High','Not Started',0,''],
+      ['A04','Delivery Excellence plan ready for review','Delivery Excellence','Delivery Head','HR Head','Pre-review',plus(2),'High','In Progress',.4,''],
+      ['A05','Define interview & feedback SLAs','Recruitment','Recruitment Lead','HR Head','30-day',plus(-2),'High','In Progress',.5,'Waiting on panel list'],
+      ['A06','Sign off HR–Delivery decision & escalation matrix','HR Function','HR Head','Delivery Head','30-day',plus(25),'High','Not Started',0,''],
+      ['A07','Create training needs assessment format','Training','L&D Lead','HR Head','30-day',plus(20),'High','Not Started',0,''],
+      ['A08','Define HR role in AI adoption','AI','AI Lead','HR Head','30-day',plus(6),'High','Blocked',.2,'AI roadmap not shared yet'],
+      ['A09','Performance escalation guide for managers','HR Function','HR Head','Delivery Head','30-day',plus(28),'High','Not Started',0,''],
+      ['A10','30/60/90 workforce forecast','HR Function','HR Head','Finance','60-day',plus(55),'High','Not Started',0,''],
+      ['A11','Annual technical & soft-skills calendar','Training','L&D Lead','HR Head','60-day',plus(50),'Medium','Not Started',0,''],
+      ['A12','AI skill mapping across roles','AI','AI Lead','HR Head','60-day',plus(58),'Medium','Not Started',0,''],
+      ['A13','Launch first grooming cohort','Training','L&D Lead','HR Head','90-day',plus(85),'Medium','Not Started',0,''],
+      ['A14','First HR scorecard to leadership','HR Function','HR Head','All owners','90-day',plus(90),'High','Not Started',0,'']]},
+    {name:'KPI Tracker', title:'KPI & Achievement Tracker (sample)',
+     headers:['KPI','Process Area','Owner','Unit','Frequency','Better if','Baseline','Target','Current'],
+     rows:[
+      ['Time-to-hire','Recruitment','Recruitment Lead','days','Monthly','Lower',48,35,41],
+      ['Offer-to-join ratio','Recruitment','Recruitment Lead','%','Monthly','Higher',.72,.85,.8],
+      ['Interview feedback within SLA','Recruitment','Recruitment Lead','%','Monthly','Higher',.55,.9,.62],
+      ['Training completion','Training','L&D Lead','%','Quarterly','Higher',.7,.9,.92],
+      ['Unnecessary escalations to HR','HR Function','HR Head','count/month','Monthly','Lower',14,5,null],
+      ['Issue resolution within SLA','HR Function','HR Head','%','Monthly','Higher',null,.9,null]]},
+    {name:'Process Ownership', title:'Process ownership (sample)',
+     headers:['#','Process Area','Process Owner','Co-Owner(s)','Objective','HR Role in this Process','Plan Status'],
+     rows:[
+      [1,'Recruitment','Recruitment Lead','HR Head, Practice Heads','Predictable hiring aligned to business demand.','Sourcing, screening, offer, metrics. Delivery owns technical selection.','Not Started'],
+      [2,'Delivery Excellence','Delivery Head','HR Head','Better delivery, including people and capability factors.','People-risk and attrition insights; steps in on repeated issues.','In Progress'],
+      [3,'Training & Grooming','L&D Lead','HR Head, Tech Leads','Build capability and next-level readiness.','Calendar, records, effectiveness, promotion linkage.','Not Started'],
+      [4,'AI','AI Lead','HR Head','Responsible AI adoption across the organisation.','Skill mapping, reskilling, policy and adoption tracking.','Blocked'],
+      [5,'HR Function','HR Head','Delivery Heads, Finance','Clear split between what Delivery owns and what HR owns.','Policy, lifecycle, performance governance, workforce planning.','In Progress']]},
+    {name:'HR Plan', title:'HR plan in the standard framework (sample)',
+     headers:['#','HR Area','Objective','Entry Criteria','Main Process','Exit Criteria','Owner','Co-Owner(s)','Timeline','Status'],
+     rows:[
+      [1,'HR–Delivery Handshake','Define what Delivery owns, what HR owns and when HR steps in.','Any people matter raised by an employee or manager.','Classify → check matrix → resolve at source → escalate on trigger → document → close.','Resolved by the right owner within SLA; decision recorded.','HR Head','Delivery Heads','30 days','In Progress'],
+      [2,'Performance Management','Manager-led performance with HR governance.','Goal cycle starts or a performance gap is seen.','Expectations → feedback → coaching → review → HR if recurring → improvement plan.','Reviews documented; formal cases have prior feedback on record.','HR Head','Delivery Heads','Quarterly','Not Started'],
+      [3,'Workforce Planning','Match capacity and hiring to demand.','Monthly cycle, new project win or critical attrition.','Demand → capacity → gap → hire / train / move → review.','Forecast approved; every gap has an owner.','HR Head','Delivery Heads, Finance','60 days','Not Started']]},
+    {name:'RACI Matrix', title:'Roles & responsibilities (sample)',
+     headers:['Area','Activity','HR Head','Process Owner','Delivery Head','Line Manager','Leadership'],
+     rows:[
+      ['Recruitment','Raise & validate hiring requirement','C','A','R','C','I'],
+      ['Recruitment','Offer & compensation','A','C','C','','C'],
+      ['Training','Training needs assessment','A','R','C','C',''],
+      ['Performance','Formal improvement plan','A','','C','R','I'],
+      ['Lifecycle','Routine leave / WFH approval','I','','I','A',''],
+      ['Governance','Monthly HR–Delivery review','A','R','R','','I']]},
+    {name:'Escalation Matrix', title:'Decision & escalation matrix (sample)',
+     headers:['Issue Type','L1 – Line Manager','L2 – Delivery Head','L3 – HR','L4 – Leadership','HR Mandatory?'],
+     rows:[
+      ['Routine leave / WFH','Approve','—','Policy & records','—','No'],
+      ['Policy exception','Recommend','Endorse','Decide','If precedent-setting','Yes'],
+      ['Repeated performance issue','Document','Endorse','Formal improvement plan','If separation','Yes'],
+      ['Workload concern','Rebalance','Resource support','Support if repeated','—','If repeated']]}
+  ];
+}
+
+/* ---------- boot ---------- */
+let restored=false;
+try{ const s=JSON.parse(localStorage.getItem(KEY)||'null'); if(s && Array.isArray(s.sheets) && s.sheets.length){ S.sheets=s.sheets; S.file=s.file; S.loadedAt=s.loadedAt; S.sample=false; restored=true; } }catch(_){}
+if (!restored) S.sheets=SAMPLE();
+try{ const t=+localStorage.getItem(KEY+'-tab'); if(t>0) S.tab=t; }catch(_){}
+render();
+})();
+</script>
+
+</body>
+</html>
