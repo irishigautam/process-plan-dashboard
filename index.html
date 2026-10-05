@@ -270,7 +270,7 @@ dd{margin:0 0 4px;overflow-wrap:anywhere}
 <div class="wrap">
   <header class="top">
     <div class="top-l">
-      <span class="eyebrow">Process setup &amp; ownership</span>
+      <span class="eyebrow" id="eyebrow">Process setup &amp; ownership</span>
       <h1 id="planTitle">Process Plan Dashboard</h1>
       <div class="src" id="src"></div>
     </div>
@@ -278,16 +278,16 @@ dd{margin:0 0 4px;overflow-wrap:anywhere}
       <input type="file" id="fileIn" accept=".xlsx,.xlsm,.xls,.csv" hidden>
       <button class="btn primary" id="uploadBtn" type="button">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M6 10l6-6 6 6M4 20h16"/></svg>
-        Upload tracker
+        <span id="uploadLabel">Upload tracker</span>
       </button>
       <button class="btn" id="resetBtn" type="button" hidden>Show original</button>
     </div>
   </header>
   <nav class="tabs" id="tabs" role="tablist" aria-label="Workbook views"></nav>
   <main id="view" class="view"></main>
-  <p class="note"><span>The page opens on the original HR tracker. A file you upload is read inside your own browser, is not sent to any server, and is remembered on this device only.</span></p>
+  <p class="note"><span id="note">The page opens on the original HR tracker. A file you upload is read inside your own browser, is not sent to any server, and is remembered on this device only.</span></p>
 </div>
-<div class="drop" id="drop" hidden><div>Drop the Excel tracker to load it</div></div>
+<div class="drop" id="drop" hidden><div id="dropMsg">Drop the Excel tracker to load it</div></div>
 <div class="toast" id="toast" hidden></div>
 
 <script>
@@ -301,7 +301,10 @@ const iso = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`
 const plus = n => {const d=new Date(TODAY); d.setDate(d.getDate()+n); return iso(d);};
 const MON = {jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
 const KEY = 'process-plan-dashboard-v2';
+const REC_MODE = /\/recruitment\/?$/.test(location.pathname) || /^#\/?recruitment$/.test(location.hash);
 const HTTP = /^https?:$/.test(location.protocol);
+const REC_PATH = /\/recruitment\/?$/.test(location.pathname);
+if (HTTP && !REC_PATH && /^#\/?recruitment$/.test(location.hash)) location.replace('/recruitment');
 function routeId(){ const m=location.pathname.match(/\/(recruitment)\/?$/); if (m) return m[1]; const h=location.hash.replace(/^#\/?/,''); return h==='recruitment' ? h : null; }
 
 function toDate(v){
@@ -471,7 +474,6 @@ function buildViews(){
   const views=[]; const act=S.sheets.find(s=>classify(s)==='actions'); const kpi=S.sheets.find(s=>classify(s)==='kpi');
   const A = act ? actionModel(act) : []; const K = kpi ? kpiModel(kpi) : [];
   views.push({label:'Overview', render:()=>renderOverview(A,K,act)});
-  views.push({label:'Recruitment Plan', id:'recruitment', n:RP_STAGES.length, render:renderRecruit});
   if (act) views.push({label:act.name, kind:'actions', n:A.length, render:()=>renderActions(A)});
   if (kpi) views.push({label:kpi.name, n:K.length, render:()=>renderKPIs(K)});
   S.sheets.forEach(sh=>{
@@ -483,8 +485,8 @@ function buildViews(){
 }
 let VIEWS=[];
 function render(){
+  if (REC_MODE) return renderRecPage();
   VIEWS = buildViews();
-  { const r=routeId(); if (r){ const hi=VIEWS.findIndex(v=>v.id===r); if(hi>=0) S.tab=hi; } }
   if (S.tab>=VIEWS.length) S.tab=0;
   const first=S.sheets.find(s=>s.title);
   $('#planTitle').textContent = S.sample ? ORIGINAL_TITLE : (S.file ? S.file.replace(/\.[^.]+$/,'').replace(/[_]+/g,' ') : (first?.title || 'Process plan'));
@@ -664,7 +666,7 @@ function renderTable(sh){
 }
 
 /* ---------- recruitment plan (source: HR Recruitment sheet + CTO comments against each point) ---------- */
-const RP_META = {owner:'Radhika Chandak', hr:'Anuja Gautam', source:'HR Recuritment .xlsx (process + CTO comments against each point)', review:'2026-10-08'};
+const RP_META = {owner:'Radhika Chandak', hr:'Anuja Gautam', source:'RE_Recruitment_Plan.xlsx (from HR Recuritment .xlsx – process + CTO comments against each point)', review:'2026-10-08'};
 const RP_MS = {'30-day':'2026-11-07','60-day':'2026-12-07','90-day':'2027-01-06'};
 const RP_STAGES = [
  {no:'1',name:'Requirement Initiation',det:'Receive requirement/JD from Delivery Team with required skills, experience, location, notice period, etc.',own:'HR',sup:'Delivery',tat:'Same day',mn:0,mx:0,
@@ -750,8 +752,12 @@ const RP_OBS = [
  ['“Before DOJ” gives no lead time for IT / Admin preparation.','18']];
 
 function renderRecruit(){
-  const all = RP_STAGES;
-  const ctoN = all.reduce((s,x)=>s+x.cto.length,0) + 1;
+  const D = R.d;
+  const all = D.stages;
+  const gen = D.general||[];
+  const stageLines = all.reduce((s,x)=>s+x.cto.length,0);
+  const ctoN = stageLines + gen.length;
+  const pts = all.filter(x=>x.cto.length).length + (gen.length?1:0);
   const chg = all.filter(x=>x.ch==='CTO').length;
   const lnk = all.filter(x=>x.ch==='Linked').length;
   const path = all.filter(x=>x.mn!=null && !x.parallel);
@@ -763,24 +769,24 @@ function renderRecruit(){
 
   const tiles = `<section class="tiles" aria-label="Recruitment summary">
     <div class="tile"><span class="eyebrow">Process stages</span><span class="v">${all.length}</span></div>
-    <div class="tile"><span class="eyebrow">CTO comments</span><span class="v">${ctoN}</span></div>
+    <div class="tile"><span class="eyebrow">Points with CTO comments</span><span class="v">${pts}</span><span class="muted" style="font-size:12px">${all.filter(x=>x.cto.length).length} stages${gen.length?' + 1 general':''}</span></div>
+    <div class="tile"><span class="eyebrow">CTO comment lines</span><span class="v">${ctoN}</span><span class="muted" style="font-size:12px">${stageLines} on stages${gen.length?` + ${gen.length} general`:''}</span></div>
     <div class="tile ok"><span class="eyebrow">Stages changed by CTO</span><span class="v">${chg}</span></div>
     <div class="tile warn"><span class="eyebrow">Linked stages</span><span class="v">${lnk}</span></div>
-    <div class="tile"><span class="eyebrow">Actions</span><span class="v">${RP_ACTIONS.length}</span></div>
-    <div class="tile"><span class="eyebrow">Req → offer (stated TATs)</span><span class="v">${bestT}–${worstT}<span class="muted" style="font-size:13px"> days</span></span></div>
+    <div class="tile"><span class="eyebrow">Actions</span><span class="v">${D.actions.length}</span></div>
   </section>`;
 
   const summary = `<div class="grid g2">
-    <section class="panel"><div class="panel-h"><h2>What the CTO’s comments change</h2><span class="muted">${chg} stages + review mechanism</span></div>
+    <section class="panel"><div class="panel-h"><h2>What the CTO’s comments change</h2><span class="muted">${chg} stages${gen.length?' + general comment':''}</span></div>
       <div class="att">${all.filter(x=>x.ch==='CTO').map(x=>`<div class="att-i"><span class="stg-no" style="width:34px;height:34px">${esc(x.no)}</span><div><div class="t">${esc(x.name)}</div><div class="m">${esc(x.out)}</div></div><span class="pill info plain">${x.cto.length}</span></div>`).join('')}
-      <div class="att-i"><span class="stg-no" style="width:34px;height:34px">★</span><div><div class="t">Review mechanism (whole process)</div><div class="m">Weekly, monthly and quarterly reviews — proposed, to confirm with the CTO</div></div><span class="pill info plain">1</span></div></div></section>
+      ${gen.map(gc=>`<div class="att-i"><span class="stg-no" style="width:34px;height:34px">★</span><div><div class="t">${esc(gc)} (whole process)</div><div class="m">${D.review?'Proposed set-up in the Review mechanism section, to confirm with the CTO':'General comment, not tied to a stage'}</div></div><span class="pill info plain">1</span></div>`).join('')}</div></section>
     <section class="panel"><div class="panel-h"><h2>How to read this</h2></div>
       <div class="att">
         <div class="att-i">${pill('Changed by CTO','info')}<div><div class="t">The step is revised to include the CTO’s comments made against it.</div><div class="m">Comments stay at the point where the CTO wrote them.</div></div><span></span></div>
         <div class="att-i">${pill('Linked','warn')}<div><div class="t">The step itself is unchanged but uses an output of a CTO change.</div><div class="m">For example, Compensation uses Anuja’s salary recommendation.</div></div><span></span></div>
         <div class="att-i">${pill('No change','')}<div><div class="t">No CTO comment; the step stays as written.</div><div class="m">Owner, supporting team and TAT are kept from the source sheet.</div></div><span></span></div>
       </div>
-      <p class="muted" style="font-size:12px;margin:12px 0 0">Source: ${esc(RP_META.source)}. Recruitment process owner: ${esc(RP_META.owner)}; HR governance: ${esc(RP_META.hr)} (per the HR tracker).</p></section>
+      <p class="muted" style="font-size:12px;margin:12px 0 0">Source: ${esc(R.custom?R.file:D.meta.source)}. Recruitment process owner: ${esc(D.meta.owner)}; HR governance: ${esc(D.meta.hr)} (per the HR tracker).</p></section>
   </div>`;
 
   const stages = all.filter(keep).map(x=>`<details class="stg" ${S.rx?'open':''}><summary>
@@ -793,29 +799,30 @@ function renderRecruit(){
       <div class="rv">
         <div><span class="eyebrow">Current step</span><div>${esc(x.det)}</div></div>
         <div class="quote"><span class="eyebrow">CTO comments on this point</span>${x.cto.length?`<ul>${x.cto.map(c=>`<li>${esc(c)}</li>`).join('')}</ul>`:'<div class="muted">None</div>'}</div>
-        <div class="${x.ch==='CTO'?'rv-new':''}"><span class="eyebrow">Revised step</span><div>${x.rev?esc(x.rev):'<span class="muted">No change.</span>'}</div>${x.acts.length?`<div class="people" style="margin-top:8px">${x.acts.map(a=>`<span class="person co">${a}</span>`).join('')}</div>`:''}</div>
+        <div class="${x.ch==='CTO'?'rv-new':''}"><span class="eyebrow">Revised step</span><div>${x.rev?esc(x.rev):(x.ch==='CTO'?'<span class="muted">Revision pending: the CTO comments are recorded; the revised step is not written in this file yet.</span>':'<span class="muted">No change.</span>')}</div>${x.acts.length?`<div class="people" style="margin-top:8px">${x.acts.map(a=>`<span class="person co">${a}</span>`).join('')}</div>`:''}</div>
       </div>
     </div></details>`).join('');
 
-  const rv = RP_REVIEW;
-  const review = `<div class="quote" style="margin-bottom:12px"><span class="eyebrow">CTO comment</span><div>${esc(rv.cto)}</div></div>
-    <p class="lede">${esc(rv.note)}</p>
-    <div class="cards">${rv.forums.map(r=>`<article class="card"><div class="card-h"><h3>${esc(r[0])}</h3>${pill(r[1],'plain')}</div>
+  const rv = D.review || {cto:gen.join('; '), note:'', forums:[]};
+  const review = !gen.length && !D.review ? '<div class="empty">No general CTO comment in this file.</div>' : `<div class="quote" style="margin-bottom:12px"><span class="eyebrow">CTO comment</span><div>${esc(rv.cto)}</div></div>
+    ${rv.note?`<p class="lede">${esc(rv.note)}</p>`:''}
+    ${rv.forums.length?'':'<div class="empty">No review set-up in this file yet.</div>'}<div class="cards">${rv.forums.map(r=>`<article class="card"><div class="card-h"><h3>${esc(r[0])}</h3>${pill(r[1],'plain')}</div>
       <div class="people"><span class="person">Chair: ${esc(r[2])}</span><span class="person co">${esc(r[3])}</span></div>
       <dl style="margin:0"><dt>Reviews</dt><dd>${esc(r[4])}</dd><dt>Output</dt><dd>${esc(r[5])}</dd></dl></article>`).join('')}</div>`;
 
-  const acts = `<div class="tbl-wrap"><table><thead><tr><th>ID</th><th>Stage</th><th>Action</th><th>CTO comment</th><th>Owner</th><th>Milestone</th><th>Target</th></tr></thead><tbody>
-    ${RP_ACTIONS.map(a=>`<tr><td class="num">${a[0]}</td><td class="num">${esc(a[1])}</td><td class="wide"><strong>${esc(a[3])}</strong>${a[7]?`<div class="muted" style="font-size:12px">${esc(a[7])}</div>`:''}</td><td class="mid muted">${esc(a[2])}</td><td class="mid">${esc(a[4])}${a[5]&&a[5]!=='—'?`<div class="muted" style="font-size:12px">with ${esc(a[5])}</div>`:''}</td><td>${esc(a[6])}</td><td class="num">${dfmt(RP_MS[a[6]])}</td></tr>`).join('')}</tbody></table></div>`;
+  const hasSt = D.actions.some(a=>a[9]);
+  const acts = !D.actions.length ? '<div class="empty">No actions in this file.</div>' : `<div class="tbl-wrap"><table><thead><tr><th>ID</th><th>Stage</th><th>Action</th><th>CTO comment</th><th>Owner</th><th>Milestone</th><th>Target</th>${hasSt?'<th>Status</th><th>Progress</th>':''}</tr></thead><tbody>
+    ${D.actions.map(a=>`<tr><td class="num">${a[0]}</td><td class="num">${esc(a[1])}</td><td class="wide"><strong>${esc(a[3])}</strong>${a[7]?`<div class="muted" style="font-size:12px">${esc(a[7])}</div>`:''}</td><td class="mid muted">${esc(a[2])}</td><td class="mid">${esc(a[4])}${a[5]&&a[5]!=='—'?`<div class="muted" style="font-size:12px">with ${esc(a[5])}</div>`:''}</td><td>${esc(a[6])}</td><td class="num">${a[8]?dfmt(a[8]):(RP_MS[a[6]]?dfmt(RP_MS[a[6]]):'—')}</td>${hasSt?`<td>${a[9]?pill(a[9]):'—'}</td><td class="num"><span class="pbar"><span style="width:${(+a[10]||0)*100}%"></span></span> ${Math.round((+a[10]||0)*100)}%</td>`:''}</tr>`).join('')}</tbody></table></div>`;
 
-  const kpis = `<div class="tbl-wrap"><table><thead><tr><th>KPI</th><th>Stage</th><th>Definition</th><th>Unit</th><th>Better if</th><th>Proposed target</th></tr></thead><tbody>
-    ${RP_KPIS.map(k=>`<tr><td><strong>${esc(k[0])}</strong></td><td class="num">${esc(k[1])}</td><td class="mid">${esc(k[2])}</td><td>${esc(k[3])}</td><td>${esc(k[4])}</td><td class="num">${k[5]==null?'<span class="muted">Set after baseline</span>':(k[3]==='%'?Math.round(k[5]*100)+'%':k[5])}</td></tr>`).join('')}</tbody></table></div>`;
+  const kpis = !D.kpis.length ? '<div class="empty">No KPIs in this file.</div>' : `<div class="tbl-wrap"><table><thead><tr><th>KPI</th><th>Stage</th><th>Definition</th><th>Unit</th><th>Better if</th><th>Proposed target</th>${D.kpis.some(k=>k[6]!=null)?'<th>Current</th>':''}</tr></thead><tbody>
+    ${D.kpis.map(k=>`<tr><td><strong>${esc(k[0])}</strong></td><td class="num">${esc(k[1])}</td><td class="mid">${esc(k[2])}</td><td>${esc(k[3])}</td><td>${esc(k[4])}</td><td class="num">${k[5]==null?'<span class="muted">Set after baseline</span>':(k[3]==='%'?Math.round(k[5]*100)+'%':k[5])}</td>${D.kpis.some(k=>k[6]!=null)?`<td class="num">${k[6]==null?'—':(k[3]==='%'?Math.round(k[6]*100)+'%':k[6])}</td>`:''}</tr>`).join('')}</tbody></table></div>`;
 
-  const obs = `<details class="stg"><summary><span class="stg-no">+</span><div><div class="stg-t">Additional observations (not CTO comments)</div><div class="stg-m">${RP_OBS.length} points noticed while revising the plan. Optional, for discussion.</div></div><div class="stg-f">${pill('Optional','')}</div></summary>
-    <div class="stg-b"><div class="au">${RP_OBS.map(o=>`<div class="au-i"><span class="mono muted">Stage ${esc(o[1])}</span><span>${esc(o[0])}</span></div>`).join('')}</div></div></details>`;
+  const obs = !D.obs.length ? '' : `<details class="stg"><summary><span class="stg-no">+</span><div><div class="stg-t">Additional observations (not CTO comments)</div><div class="stg-m">${D.obs.length} points noticed while revising the plan. Optional, for discussion.</div></div><div class="stg-f">${pill('Optional','')}</div></summary>
+    <div class="stg-b"><div class="au">${D.obs.map(o=>`<div class="au-i"><span class="mono muted">Stage ${esc(o[1])}</span><span>${esc(o[0])}</span></div>`).join('')}</div></div></details>`;
 
   const nav = [['rp-summary','Summary'],['rp-stages','Revised process'],['rp-review','Review mechanism'],['rp-actions','Action plan'],['rp-kpi','KPIs'],['rp-obs','Other observations']];
-  return `<div class="rp-hero"><div><span class="eyebrow">Recruitment · revised with CTO comments</span><h2 style="font-size:24px;margin-top:4px">Recruitment plan</h2>
-      <p>The recruitment process as presented, with each CTO comment applied to the point it was made against, plus the review mechanism and an action plan on the HR tracker’s 30/60/90 milestones.</p></div>
+  return `<div class="rp-hero" style="margin-top:4px"><div><span class="eyebrow">Revised with CTO comments</span>
+      <p>The recruitment process as presented, with each CTO comment applied to the point it was made against, plus the review mechanism and an action plan.</p></div>
     <div class="rp-tools"><button class="btn" type="button" id="rpCopy">Copy link</button><button class="btn" type="button" id="rpPrint">Print / PDF</button></div></div>
   <nav class="rp-nav" aria-label="Recruitment plan sections">${nav.map(n=>`<button type="button" data-jump="${n[0]}">${n[1]}</button>`).join('')}</nav>
   <section class="rp-sec" id="rp-summary" style="margin-top:12px">${tiles}${summary}</section>
@@ -824,9 +831,136 @@ function renderRecruit(){
     <button class="btn" type="button" id="rpExpand">${S.rx?'Collapse all':'Expand all'}</button></div></div>
     ${stages || '<div class="empty">No stages match this filter.</div>'}</section>
   <section class="rp-sec" id="rp-review"><div class="panel-h"><div><h2>Review mechanism</h2></div></div>${review}</section>
-  <section class="rp-sec" id="rp-actions"><div class="panel-h"><div><h2>Action plan</h2><p class="lede">One action per CTO comment (grouped where comments belong together), dated on the HR tracker’s milestones: 30-day ${dfmt(RP_MS['30-day'])}, 60-day ${dfmt(RP_MS['60-day'])}.</p></div></div>${acts}</section>
+  <section class="rp-sec" id="rp-actions"><div class="panel-h"><div><h2>Action plan</h2><p class="lede">One action per CTO comment (grouped where comments belong together), with owners and target dates.</p></div></div>${acts}</section>
   <section class="rp-sec" id="rp-kpi"><div class="panel-h"><div><h2>KPIs for the review mechanism</h2><p class="lede">Each KPI tracks one CTO change. Targets are proposals to confirm in review.</p></div></div>${kpis}</section>
   <section class="rp-sec" id="rp-obs">${obs}</section>`;
+}
+
+/* ---------- recruitment page: own data, own upload (file name must start or end with "RE") ---------- */
+const REC_KEY = 'recruitment-plan-v1';
+const REC_DEFAULT_FILE = 'RE_Recruitment_Plan.xlsx';
+const recDefault = () => JSON.parse(JSON.stringify({meta:RP_META, stages:RP_STAGES, general:[RP_REVIEW.cto], review:RP_REVIEW, actions:RP_ACTIONS, kpis:RP_KPIS, obs:RP_OBS}));
+const R = { d:null, file:REC_DEFAULT_FILE, custom:false, loadedAt:null, note:'' };
+function isRecName(n){ const b=String(n||'').replace(/\.[^.]+$/,'').replace(/^[\s_\-.()]+|[\s_\-.()]+$/g,''); return /^re/i.test(b) || /re$/i.test(b); }
+const normTxt = s => String(s??'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+function tatDays(t){
+  const s=String(t||'').toLowerCase(); let m;
+  if (/before doj|day 1|doj/.test(s)) return [null,null];
+  if (/same\s*\/\s*next/.test(s)) return [0,1];
+  if (/same day/.test(s)) return [0,0];
+  if (/24\s*h/.test(s)) return [1,1];
+  if ((m=s.match(/(\d+)\s*[–-]\s*(\d+)/))) return [+m[1],+m[2]];
+  if ((m=s.match(/(\d+)\s*day/))) return [+m[1],+m[1]];
+  return [null,null];
+}
+function sheetAoa(ws){
+  if (!ws || !ws['!ref']) return [];
+  const r=XL.utils.decode_range(ws['!ref']); const aoa=[];
+  for (let Ri=r.s.r; Ri<=Math.min(r.e.r, r.s.r+2000); Ri++){ const row=[]; for (let C=0; C<=Math.min(r.e.c,40); C++) row.push(cellVal(ws[XL.utils.encode_cell({r:Ri,c:C})])); aoa.push(row); }
+  return aoa;
+}
+function findHeader(aoa, tests){
+  for (let i=0;i<Math.min(aoa.length,15);i++){ const h=aoa[i].map(v=>String(v??'').toLowerCase().trim()); if (tests.every(t=>h.some(x=>t.test(x)))) return {i,h}; }
+  return null;
+}
+const colOf = (h, re, not) => h.findIndex(x => re.test(x) && !(not && not.test(x)));
+const lines = v => String(v??'').split(/\r?\n/).map(x=>x.trim().replace(/,\s*$/,'').trim()).filter(Boolean);
+function recParse(buf){
+  const wb = XL.read(buf,{type:'array',cellNF:true,cellDates:false});
+  const sheets = wb.SheetNames.map(n=>({n, aoa:sheetAoa(wb.Sheets[n])}));
+  const cands = sheets.map(s=>({s, hd:findHeader(s.aoa,[/recruitment stage/,/details/])})).filter(x=>x.hd);
+  if (!cands.length) throw new Error('No recruitment process found. The file needs a sheet with “Recruitment Stage” and “Details / Steps” columns.');
+  const pick = cands.find(x=>x.hd.h.some(v=>/revised step/.test(v))) || cands[0];
+  const {aoa} = pick.s, {i:hi, h} = pick.hd;
+  const c = { sr:colOf(h,/^sr|^#$|s\.? ?no/), st:colOf(h,/recruitment stage/), det:colOf(h,/details/), own:colOf(h,/^owner/), sup:colOf(h,/supporting/), tat:colOf(h,/^tat/),
+    cto:colOf(h,/comment/), ch:colOf(h,/^change/), rev:colOf(h,/revised/), out:colOf(h,/^output/), acts:colOf(h,/action id/) };
+  const g = (r,k) => c[k]>=0 ? r[c[k]] : null;
+  const hasRev = c.rev>=0;
+  const emb = {}; RP_STAGES.forEach(s=>emb[normTxt(s.name)]=s);
+  const stages=[], general=[]; const matched=new Set();
+  for (const r of aoa.slice(hi+1)){
+    const name = g(r,'st'), cmts = lines(g(r,'cto'));
+    const body = [g(r,'det'),g(r,'own'),g(r,'tat')].some(v=>v!=null && v!=='');
+    if (name && /review mechanism/i.test(String(name)) && !g(r,'sr')){ general.push(...(cmts.length?cmts:['Review mechanism'])); continue; }
+    if (name && body){
+      const [mn,mx] = tatDays(g(r,'tat'));
+      const s = { no: g(r,'sr')!=null && g(r,'sr')!=='' ? String(g(r,'sr')) : '—', name:String(name).trim(), det:String(g(r,'det')??''), own:String(g(r,'own')??''), sup:String(g(r,'sup')??'—'),
+        tat:String(g(r,'tat')??''), mn, mx, cto:cmts, ch:'None', rev:'', out:'', acts:[] };
+      if (s.no==='—' && /feedback/i.test(s.name)) s.parallel = true;
+      if (hasRev){
+        const ch=String(g(r,'ch')??''); s.ch = /cto/i.test(ch) ? 'CTO' : /link/i.test(ch) ? 'Linked' : 'None';
+        const rv=String(g(r,'rev')??'').trim(); s.rev = /^no change\.?$/i.test(rv) ? '' : rv;
+        s.out=String(g(r,'out')??''); s.acts=String(g(r,'acts')??'').split(/[,\s]+/).filter(Boolean);
+      } else {
+        const e = emb[normTxt(s.name)];
+        const same = e && normTxt(e.cto.join('|'))===normTxt(s.cto.join('|'));
+        if (e && same){ s.ch=e.ch; s.rev=e.rev; s.out=e.out; s.acts=e.acts.slice(); if (e.cto.length) matched.add(e.no); if (e.parallel) s.parallel=true; }
+        else if (s.cto.length){ s.ch='CTO'; }
+      }
+      stages.push(s); continue;
+    }
+    if (!name && cmts.length && c.cto>=0) general.push(...cmts);
+  }
+  if (!stages.length) throw new Error('No recruitment stages found under the header row.');
+  const D = { meta:Object.assign({}, RP_META, {source:''}), stages, general, review:null, actions:[], kpis:[], obs:[] };
+  const find = tests => { for (const s of sheets){ const hd=findHeader(s.aoa,tests); if (hd) return {aoa:s.aoa, ...hd}; } return null; };
+  // actions
+  const at = find([/^id$/,/^action/,/^owner/]);
+  if (at){ const h=at.h, k={id:colOf(h,/^id$/),st:colOf(h,/^stage/),cto:colOf(h,/cto comment/),act:colOf(h,/^action/),own:colOf(h,/^owner/),co:colOf(h,/co-owner|partner/),ms:colOf(h,/milestone/),due:colOf(h,/target date/),stt:colOf(h,/^status/),pct:colOf(h,/%|complete/),nt:colOf(h,/notes/)};
+    const v=(r,x)=>k[x]>=0?r[k[x]]:null;
+    at.aoa.slice(at.i+1).forEach(r=>{ if (v(r,'id') && v(r,'act')) D.actions.push([String(v(r,'id')),String(v(r,'st')??''),String(v(r,'cto')??''),String(v(r,'act')),String(v(r,'own')??''),String(v(r,'co')??'—'),String(v(r,'ms')??''),String(v(r,'nt')??''),v(r,'due')?String(v(r,'due')):null,v(r,'stt')?normStatus(v(r,'stt')):null,v(r,'pct')]); });
+  } else if (!hasRev){
+    const keepIds = new Set(RP_STAGES.filter(s=>matched.has(s.no)).flatMap(s=>s.acts));
+    if (general.some(x=>/review mechanism/i.test(x))) RP_REVIEW.acts.forEach(a=>keepIds.add(a));
+    D.actions = RP_ACTIONS.filter(a=>keepIds.has(a[0])).map(a=>a.slice());
+  }
+  // review mechanism
+  const rt = find([/^forum/,/cadence/]);
+  if (rt){ const h=rt.h, k=[/^forum/,/cadence/,/chair/,/attendee/,/review/,/^output/].map(re=>colOf(h,re));
+    const forums = rt.aoa.slice(rt.i+1).filter(r=>r[k[0]] && r[k[1]]).map(r=>k.map(j=>j>=0?String(r[j]??''):''));
+    D.review = {cto:general[0]||'Review mechanism', note:'', forums, acts:[]};
+  } else if (general.some(x=>/review mechanism/i.test(x))) D.review = JSON.parse(JSON.stringify(RP_REVIEW));
+  // KPIs
+  const kt = find([/^kpi/,/definition/]);
+  if (kt){ const h=kt.h, k={n:colOf(h,/^kpi/),st:colOf(h,/^stage/),d:colOf(h,/definition/),u:colOf(h,/^unit/),b:colOf(h,/better/),t:colOf(h,/target/),cur:colOf(h,/current/)};
+    kt.aoa.slice(kt.i+1).forEach(r=>{ if (r[k.n] && r[k.d]) D.kpis.push([String(r[k.n]),String(k.st>=0?r[k.st]??'':''),String(r[k.d]),String(k.u>=0?r[k.u]??'':''),String(k.b>=0?r[k.b]??'':''),k.t>=0&&r[k.t]!==''?r[k.t]:null,k.cur>=0&&r[k.cur]!==''?r[k.cur]:null]); });
+  } else if (!hasRev && matched.size) D.kpis = RP_KPIS.map(x=>x.slice());
+  // observations
+  const ot = find([/observation/]);
+  if (ot){ const h=ot.h, ko=colOf(h,/observation/), ks=colOf(h,/^stage/); ot.aoa.slice(ot.i+1).forEach(r=>{ if (r[ko]) D.obs.push([String(r[ko]), ks>=0?String(r[ks]??''):'']); }); }
+  return D;
+}
+function loadRecFile(file){
+  if (!file) return;
+  if (!isRecName(file.name)){ toast(`“${file.name}” can’t be loaded here. The Recruitment Plan only accepts files whose name starts or ends with “RE” — for example RE_Recruitment_Plan.xlsx or Hiring_Plan_RE.xlsx.`, true); return; }
+  if (!XL){ toast('The Excel reader did not load. Check your connection and reload the page.', true); return; }
+  if (!/\.(xlsx|xlsm|xls)$/i.test(file.name)){ toast('Please choose an Excel file (.xlsx or .xls).', true); return; }
+  const fr=new FileReader();
+  fr.onload = () => {
+    try{
+      const D = recParse(new Uint8Array(fr.result));
+      R.d=D; R.file=file.name; R.custom=true; R.loadedAt=new Date().toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+      try{ localStorage.setItem(REC_KEY, JSON.stringify({file:R.file, loadedAt:R.loadedAt, d:D})); }catch(_){}
+      render(); toast(`Loaded ${D.stages.length} stages from ${file.name}`);
+    }catch(err){ toast(err && err.message && !/^[A-Z][a-z]+Error/.test(err.name||'') ? err.message : 'Could not read that file. Save it as .xlsx in Excel and try again.', true); }
+  };
+  fr.onerror = () => toast('Could not open that file. Try again.', true);
+  fr.readAsArrayBuffer(file);
+}
+function renderRecPage(){
+  const D=R.d;
+  document.title = 'Recruitment Plan';
+  const home = HTTP ? '/' : location.pathname;
+  $('#eyebrow').innerHTML = `<a href="${home}" style="color:inherit">Process plan</a> <span aria-hidden="true">/</span> Recruitment`;
+  $('#planTitle').textContent = 'Recruitment Plan';
+  $('#src').innerHTML = R.custom
+    ? `<span class="chip live">Loaded</span><span class="mono">${esc(R.file)}</span><span class="muted">· ${D.stages.length} stages · opened ${esc(R.loadedAt||'')}</span>`
+    : `<span class="chip live">Original plan</span><span class="mono">${esc(REC_DEFAULT_FILE)}</span><span class="muted">· ${D.stages.length} stages · upload accepts file names starting or ending with “RE”</span>`;
+  $('#uploadLabel').textContent = 'Upload recruitment file';
+  $('#resetBtn').hidden = !R.custom;
+  $('#tabs').hidden = true;
+  $('#note').textContent = 'This page has its own upload, separate from the process plan. Only files whose name starts or ends with “RE” are accepted. The file is read in your browser, is not sent to any server, and is remembered on this device only.';
+  const v=$('#view'); v.innerHTML = renderRecruit(); bindView();
 }
 
 /* ---------- events ---------- */
@@ -843,14 +977,14 @@ function bindView(){
   const c=$('#f-clear'); if(c) c.addEventListener('click',()=>{ S.af={q:'',area:'',owner:'',status:'',flag:''}; drawView(); });
   const ex=$('#expandAll'); if(ex) ex.addEventListener('click',()=>{ S.expand=!S.expand; drawView(); });
 }
-$('#tabs').addEventListener('click',e=>{ const t=e.target.closest('.tab'); if(!t) return; S.tab=+t.dataset.i; syncHash(); drawView(); window.scrollTo({top:0}); try{ localStorage.setItem(KEY+'-tab2', S.tab); }catch(_){} });
+$('#tabs').addEventListener('click',e=>{ const t=e.target.closest('.tab'); if(!t) return; S.tab=+t.dataset.i; syncHash(); drawView(); window.scrollTo({top:0}); try{ localStorage.setItem(KEY+'-tab3', S.tab); }catch(_){} });
 
 function syncHash(){ const v=VIEWS[S.tab]; const id=v&&v.id;
   try{
     if (HTTP){ const want = id ? '/'+id : '/'; if (location.pathname!==want || location.hash) history.pushState(null,'', want+location.search); }
     else history.replaceState(null,'', id ? '#'+id : location.pathname+location.search);
   }catch(_){} }
-function onRoute(){ const r=routeId(); const hi = r ? VIEWS.findIndex(v=>v.id===r) : 0; if (hi>=0 && hi!==S.tab && (r || VIEWS[S.tab].id)){ S.tab=hi; drawView(); } }
+function onRoute(){ if (REC_MODE) return; const r=routeId(); const hi = r ? VIEWS.findIndex(v=>v.id===r) : 0; if (hi>=0 && hi!==S.tab && (r || VIEWS[S.tab].id)){ S.tab=hi; drawView(); } }
 window.addEventListener('popstate',onRoute); window.addEventListener('hashchange',onRoute);
 window.addEventListener('beforeprint',()=>document.querySelectorAll('#view details').forEach(d=>{ if(!d.open){ d.open=true; d.dataset.po='1'; } }));
 window.addEventListener('afterprint',()=>document.querySelectorAll('#view details[data-po]').forEach(d=>{ d.open=false; delete d.dataset.po; }));
@@ -875,13 +1009,15 @@ function loadFile(file){
   fr.readAsArrayBuffer(file);
 }
 $('#uploadBtn').addEventListener('click',()=>$('#fileIn').click());
-$('#fileIn').addEventListener('change',e=>{ loadFile(e.target.files[0]); e.target.value=''; });
-$('#resetBtn').addEventListener('click',()=>{ try{ localStorage.removeItem(KEY); }catch(_){} loadOriginal(); S.tab=0; render(); toast('Showing the original HR tracker again. Your uploaded file was forgotten on this device.'); });
+$('#fileIn').addEventListener('change',e=>{ (REC_MODE?loadRecFile:loadFile)(e.target.files[0]); e.target.value=''; });
+$('#resetBtn').addEventListener('click',()=>{
+  if (REC_MODE){ try{ localStorage.removeItem(REC_KEY); }catch(_){} R.d=recDefault(); R.file=REC_DEFAULT_FILE; R.custom=false; R.loadedAt=null; render(); toast('Showing the original recruitment plan again. Your uploaded file was forgotten on this device.'); return; }
+  try{ localStorage.removeItem(KEY); }catch(_){} loadOriginal(); S.tab=0; render(); toast('Showing the original HR tracker again. Your uploaded file was forgotten on this device.'); });
 let dragN=0;
 window.addEventListener('dragenter',e=>{ if([...(e.dataTransfer?.types||[])].includes('Files')){ dragN++; $('#drop').hidden=false; }});
 window.addEventListener('dragleave',()=>{ dragN=Math.max(0,dragN-1); if(!dragN) $('#drop').hidden=true; });
 window.addEventListener('dragover',e=>e.preventDefault());
-window.addEventListener('drop',e=>{ e.preventDefault(); dragN=0; $('#drop').hidden=true; const f=e.dataTransfer?.files?.[0]; if(f) loadFile(f); });
+window.addEventListener('drop',e=>{ e.preventDefault(); dragN=0; $('#drop').hidden=true; const f=e.dataTransfer?.files?.[0]; if(f) (REC_MODE?loadRecFile:loadFile)(f); });
 
 /* ---------- original data: BFL_HR_Plan_and_Tracker_12.xlsx (embedded so the page opens on the real tracker) ---------- */
 const ORIGINAL_FILE='BFL_HR_Plan_and_Tracker_12.xlsx', ORIGINAL_TITLE='BFL – HR Plan & Process Setup', ORIGINAL_ASOF='06 Oct 2026';
@@ -892,7 +1028,12 @@ function loadOriginal(){ S.sheets=JSON.parse(JSON.stringify(ORIGINAL)); S.file=O
 let restored=false;
 try{ const s=JSON.parse(localStorage.getItem(KEY)||'null'); if(s && Array.isArray(s.sheets) && s.sheets.length){ S.sheets=s.sheets; S.file=s.file; S.loadedAt=s.loadedAt; S.sample=false; restored=true; } }catch(_){}
 if (!restored) loadOriginal();
-try{ const t=+localStorage.getItem(KEY+'-tab2'); if(t>0) S.tab=t; }catch(_){}
+try{ const t=+localStorage.getItem(KEY+'-tab3'); if(t>0) S.tab=t; }catch(_){}
+if (REC_MODE){
+  try{ const s=JSON.parse(localStorage.getItem(REC_KEY)||'null'); if (s && s.d && Array.isArray(s.d.stages) && s.d.stages.length){ R.d=s.d; R.file=s.file; R.loadedAt=s.loadedAt; R.custom=true; } }catch(_){}
+  if (!R.d) R.d=recDefault();
+  const dm=$('#dropMsg'); if (dm) dm.textContent='Drop a recruitment file (name starting or ending with “RE”)';
+}
 render();
 })();
 </script>
